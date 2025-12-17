@@ -1,8 +1,16 @@
 # ScheduleAnything
 
-Schedule any optimizer hyperparameter in PyTorch, not just learning rate.
+ScheduleAnything is foundation infrastructure designed to be composable that works with pytorch to allow attachment of schedules to any optimizer hyperparameter, not just learning rate. It allows extension of existing optimizer, and otherwise supports complex scenarios where the optimization thresholds need to change as training proceeds.
 
-PyTorch's built-in schedulers only work with learning rate. Want to schedule weight decay, momentum, or any custom parameter? Now you can.
+## Why ScheduleAnything?
+
+PyTorch's built-in schedulers only work with learning rate. ScheduleAnything extends scheduling to **any optimizer parameter** - weight decay, momentum, gradient clipping thresholds, custom parameters - using the same familiar PyTorch scheduler interface.
+
+This is a lightweight, focused tool following the Unix philosophy: do one thing well. That thing is support building tools and implementations around arbitrary hyperparameter scheduling, to be composed as part of a broader project.
+
+## Who Needs This?
+
+For researchers scheduling novel parameters or developers needing lightweight scheduling components to integrate into their projects. Not for standard model training with typical hyperparameter configurations. The important thing to keep in mind is **ScheduleAnything is Infrastructure**, not a prebuilt solution.
 
 ## Installation
 
@@ -10,17 +18,14 @@ PyTorch's built-in schedulers only work with learning rate. Want to schedule wei
 pip install torch-schedule-anything
 ```
 
-Conventionally imported as:
+Canonically imported as:
 ```python
 import torch_schedule_anything as sa
 ```
 
 ## Quick Start
 
-Schedule weight decay with cosine annealing and warmup:
-
 ```python
-import torch
 import torch.nn as nn
 from torch.optim import AdamW
 import torch_schedule_anything as sa
@@ -29,121 +34,174 @@ import torch_schedule_anything as sa
 model = nn.Linear(10, 1)
 optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
-# Schedule weight_decay with cosine annealing + warmup
-wd_scheduler = sa.cosine_annealing_with_warmup(
+# Schedule weight decay with cosine annealing
+scheduler = sa.cosine_annealing_with_warmup(
     optimizer,
-    warmup_to_value=0.01,
-    anneal_to_value=0.0001,
+    warmup_to_value=1.0,
+    anneal_to_value=0.01,
     num_warmup_steps=100,
     num_training_steps=1000,
-    schedule_target='weight_decay'  # That's it!
+    schedule_target='weight_decay'
 )
+scheduler = sa.SynchronousSchedule([scheduler])
 
 # Training loop
 for step in range(1000):
     # Your training code here
-    wd_scheduler.step()
+    scheduler.step()
 ```
 
-Want to schedule learning rate instead? Just change `schedule_target='lr'` (or omit it, since 'lr' is the default).
-
-## Built-in Schedules
-
-### Common Parameters
-- **warmup_to_value**: Target value at end of warmup phase
-- **anneal_to_value**: Final value at end of training
-- **num_warmup_steps**: Steps for warmup phase
-- **num_training_steps**: Total training steps
-- **warmup_multiplier**: For inverse warmup - starts at `warmup_to_value * warmup_multiplier`
-- **polynomial_exponent**: Controls curve shape (higher = slower initial change)
-- **schedule_target**: Which parameter to schedule (default: `'lr'`)
-
-### Available Schedules
-
-| Schedule | When to Use |
-|----------|-------------|
-| `cosine_annealing_with_warmup` | Smooth warmup then cosine decay - most popular choice |
-| `cosine_annealing_with_inverse_warmup` | Start high, decay to baseline, then cosine anneal |
-| `linear_schedule_with_warmup` | Simple linear decay after warmup |
-| `polynomial_schedule_with_warmup` | Customizable curve shape (quadratic, cubic, etc.) |
-| `quadratic_schedule_with_warmup` | Slow early decay, faster later |
-| `sqrt_schedule_with_warmup` | Fast early decay, slower later |
-| `constant_with_warmup` | Warmup to value then hold constant |
-| `constant_schedule` | Hold one value throughout training |
-
-*Inverse warmup variants available for all schedules (except constant).*
-
-See [Builtin Schedule API Reference](documentation/builtin_schedules.md) for complete documentation with examples. See 
-
-## Custom Schedules
-
-Need something specific? Use any PyTorch scheduler with the factory pattern:
-
-```python
-from torch.optim.lr_scheduler import StepLR, CosineAnnealingLR
-
-# Schedule momentum with step decay  
-momentum_scheduler = sa.arbitrary_schedule_factory(
-    feature_name='momentum',
-    optimizer=optimizer,
-    schedule_factory=lambda opt: StepLR(opt, step_size=30, gamma=0.1),
-    default_value=0.9  # Sets initial value if not present
-)
-
-# Schedule weight decay with cosine annealing  
-wd_scheduler = sa.arbitrary_schedule_factory(
-    feature_name='weight_decay',
-    optimizer=optimizer,
-    schedule_factory=lambda opt: CosineAnnealingLR(opt, T_max=100)
-)
-```
-
-Any standard PyTorch scheduler works: `StepLR`, `ExponentialLR`, `ReduceLROnPlateau`, `LambdaLR`, etc.
-
-## Schedule Multiple Parameters
-
-Synchronize learning rate AND weight decay schedules:
-
-```python
-from torch.optim.lr_scheduler import CosineAnnealingLR
-
-# Schedule learning rate
-lr_scheduler = CosineAnnealingLR(optimizer, T_max=100)
-
-# Schedule weight decay  
-wd_scheduler = sa.cosine_annealing_with_warmup(
-    optimizer,
-    warmup_to_value=0.01,
-    anneal_to_value=0.0001,
-    num_warmup_steps=10,
-    num_training_steps=100,
-    schedule_target='weight_decay'
-)
-
-# Synchronize them
-sync_scheduler = sa.SynchronousSchedule([lr_scheduler, wd_scheduler])
-
-# Step both together
-for epoch in range(100):
-    # Training loop here
-    sync_scheduler.step()
-```
+Want to schedule learning rate instead? Change `schedule_target='lr'` (or omit it - 'lr' is the default)
 
 ## What Can You Schedule?
 
 Anything in your optimizer's `param_groups`:
-- `weight_decay` - L2 regularization strength
-- `momentum` - SGD momentum  
-- Custom parameters you've added
+- Learning rate (`lr`)
+- Weight decay (`weight_decay`)
+- Momentum (`momentum`)
+- Dampening (`dampening`)
+- Gradient clipping thresholds
+- Custom parameters you define
 
-## Why ScheduleAnything?
+The library works by proxying PyTorch's learning rate scheduling mechanism to arbitrary parameters. It can also extend and insert new parameters if you want as well.
 
-Dynamic hyperparameter scheduling is a powerful training technique, but PyTorch only supports it for learning rate out of the box. Options like PyTorch-Ignite support other possibilities, but require full commitment to heavy frameworks. This is a lightweight solution that instead builds on top of what torch already provides you.
+---
+## Technical Highlights
 
-Perfect for:
-- Research experiments with novel scheduling strategies
-- Reproducing papers that schedule multiple hyperparameters
-- Fine-grained training control
+### Built-In Schedules
+
+13 pre-configured curve primitives covering common training patterns. Only the classes of schedules are currently shown
+
+| Schedule Type | Description |
+|--------------|-------------|
+| **Cosine** | Smooth S-shaped transitions (standard and inverse warmup) |
+| **Polynomial** | Customizable curve shapes with arbitrary exponents |
+| **Linear** | Constant-rate decay |
+| **Quadratic** | Accelerating decay (slow start, fast finish) |
+| **Square Root** | Decelerating decay (fast start, slow finish) |
+| **Constant** | Flat after warmup |
+
+All schedules work on any optimizer parameter via `schedule_target`. Each includes standard and inverse warmup variants.
+
+**→** See [Built-In Schedules API Reference](documentation/builtin_schedules.md) for complete documentation including mathematical formulas.
+
+### Custom Schedules
+
+Use **any PyTorch scheduler** on **any parameter** via the factory pattern. Compatible with:
+- `StepLR`, `MultiStepLR`, `ExponentialLR`
+- `CosineAnnealingLR`, `CosineAnnealingWarmRestarts`
+- `LambdaLR` for custom curves
+- Any other PyTorch `_LRScheduler`
+
+The factory handles parameter creation, initialization, and binding automatically. Perfect for extending optimizer behavior with custom parameters that your training code can read and respond to.
+
+**→** See [User Guide - Custom Schedules](documentation/user_guide.md#custom-schedules-with-the-factory) for usage details.
+
+### Parallel Schedule Coordination
+
+`SynchronousSchedule` coordinates multiple schedules:
+- Keeps schedulers in lockstep (no desynchronization)
+- Provides honest API methods (no lying `get_lr()`)
+- Supports state dict save/load
+- Handles arbitrary numbers of schedules
+
+Essential when scheduling multiple parameters simultaneously.
+
+**→** See [User Guide - Parallel Schedules](documentation/user_guide.md#parallel-schedules) for patterns and best practices.
+
+### Case Study: Complete Training Setup
+
+Combining all three capabilities - built-in schedules, custom schedules via factory, and parallel coordination.
+
+**Scenario:** You have a custom gradient clipping function that reads per-parameter-group thresholds:
+
+```python
+def my_custom_gradient_clipping(optimizer):
+    """
+    Apply gradient clipping per parameter group based on scheduled thresholds.
+    Reads 'gradient_clip_threshold' from each param_group.
+    """
+    for threshold, parameters, group in sa.get_param_groups_regrouped_by_key(optimizer, "gradient_clip_threshold"):
+        torch.nn.utils.clip_grad_norm_(parameters, max_norm=threshold)
+```
+
+You also have `MyCustomSchedule` that needs the number of training steps.
+
+You want to:
+1. Schedule the gradient clipping threshold from 10 → 0 over training
+2. Schedule weight decay to strengthen from 0.01 → 0.1 (quadratic curve)
+3. Schedule learning rate with standard cosine annealing
+
+**Here's how ScheduleAnything achieves this:**
+
+```python
+import torch
+import torch.nn as nn
+from torch.optim import AdamW
+import torch_schedule_anything as sa
+
+optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
+
+# Custom parameter: Gradient clipping threshold
+# Use your custom scheduler via factory - starts at 10, anneals to 0
+clip_scheduler = sa.arbitrary_schedule_factory(
+    optimizer=optimizer,
+    schedule_factory=lambda opt: MyCustomSchedule(opt, train_steps=10000),
+    default_value=10.0,  # Initialize the custom parameter
+    schedule_target='gradient_clip_threshold',
+
+)
+
+# Built-in: Weight decay strengthening over training
+# Quadratic curve - starts loose (0.01), tightens near end (1.0)
+wd_scheduler = sa.quadratic_schedule_with_warmup(
+    optimizer,
+    warmup_to_value=0.01,
+    anneal_to_value=1.0,
+    num_warmup_steps=500,
+    num_training_steps=10000,
+    schedule_target='weight_decay'
+)
+
+# Built-in: Standard learning rate with cosine annealing
+lr_scheduler = sa.cosine_annealing_with_warmup(
+    optimizer,
+    warmup_to_value=1.0,
+    anneal_to_value=0.01,
+    num_warmup_steps=500,
+    num_training_steps=10000,
+    schedule_target='lr'
+)
+
+# Coordinate all three schedules
+sync = sa.SynchronousSchedule([clip_scheduler, wd_scheduler, lr_scheduler])
+
+# Training loop (step-based)
+for step in range(10000):
+    # Forward pass, backward pass
+    loss.backward()
+    
+    # Apply gradient clipping using scheduled threshold
+    # This function reads gradient_clip_threshold from optimizer.param_groups
+    my_custom_gradient_clipping(optimizer)
+    
+    optimizer.step()
+    optimizer.zero_grad()
+    
+    # Step all schedules together
+    sync.step()
+```
+
+This demonstrates the full power: custom parameters created via factory, built-in curves for standard parameters, and synchronous coordination keeping everything aligned.
+
+---
+
+## Documentation
+
+- **[User Guide](documentation/user_guide.md)** - Complete usage guide with examples and best practices
+- **[Built-In Schedules](documentation/builtin_schedules.md)** - API reference with mathematical formulas for all schedules
+- **[Infrastructure](documentation/infrastructure.md)** for complete API references of the utilities.
+
 
 ## License
 
@@ -151,4 +209,4 @@ MIT
 
 ## Contributing
 
-Issues and PRs welcome at [github.com/smithblack-0/ScheduleAnything](https://github.com/yourusername/ScheduleAnything)
+Issues and PRs welcome at [github.com/smithblack-0/ScheduleAnything](https://github.com/smithblack-0/ScheduleAnything)

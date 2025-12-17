@@ -1,29 +1,32 @@
 # ScheduleAnything User Guide
 
-Complete guide to using `torch-schedule-anything` for flexible hyperparameter scheduling in PyTorch.
+Complete guide to using `torch-schedule-anything` for flexible hyperparameter scheduling in PyTorch and extension of optimizers.
 
----
 
 ## Who This Library Is For
 
-This library is a **research tool** for people who understand optimization and need precise control over hyperparameter curves during training. It is also a **production component** for those who want to hook up torch optimizers in python as part of a broader project.
+This library is a **research tool** for people who understand optimization and need precise control over hyperparameter curves during training. It is also a **production component** for those who want to hook up torch optimizers in python as part of a broader project. It is professional infrastructure for researchers and developers, not a convenience wrapper for beginners. It follows the unix philosophy of doing one thing, and one thing well. That thing is an arbitrary optimizer hyperparameter scheduling extension in the PyTorch ecosystem. 
 
-**You want this library if:**
-- You need to schedule parameters beyond learning rate (weight decay, momentum, gradient clipping thresholds, etc.)
-- You want specific curve shapes (cosine, polynomial, custom) for your hyperparameters
-- You're implementing novel training strategies from papers.
-- You understand your optimizer's update equations and how parameters interact
-- You want a lightweight arbitrary scheduling tool in a familiar form factor without having to commit to a framework.
+**You want this library if your requirements are:**
+
+- A need to arbitrarily schedule hyperparameters in the optimizer, and a lack of existing knowledge on exactly what needs scheduling, 
+- A need to write arbitrary schedules that extend the torch optimizer that are hooked up to, for instance, a gradient clip threshold.
+- Clear documentation, simplicity, and flexibility; you could walk back in 6 months and make any change you need
+- The confidence and simplicity you can know this has been done right, and that failures fail fast rather than corrupt silently.
+- A refusal to an existing framework for only one little part, or a situation where you are developing a framework yourself.
+- You want specific curve shapes (cosine, polynomial, custom) for your hyperparameters and want reasonable support for common defaults, but the ability to define your own curves as well.
+
+Then this tool is likely for you. It is designed for compositon as part of a broader whole This covers primarily framework developers and researchers, but also may cover experimenters who have an unusual needed schedule case, like batch size. 
 
 **You don't need this library if:**
+
 - You just want standard learning rate scheduling (use PyTorch's built-in schedulers).
 - You're following a standard training recipe for common architectures.
 - You're unsure how your optimizer's hyperparameters interact.
-- You do not know what a scheduling curve is.
+- You do not know what a scheduling curve is or how to define it.
+- You are not willing to reason about the internals of optimizers.
 
-This is professional infrastructure for researchers and developers, not a convenience wrapper for beginners. It follows the unix philsophy of doing one thing, and one thing well. That thing is arbitrary schedule support.
-
----
+This project is deliberately documented using Document-Driven Development, append-only once released, and simple enough to be confident no test case is missed. **Correctness, Composability, and Flexibility at a minor and intuitive Verbosity increase is the trade we make.**
 
 ## Canonical Import
 
@@ -35,14 +38,37 @@ import torch_schedule_anything as sa
 
 All examples follow this convention.
 
----
+## Navigation
 
+- See [builtin schedules.md](builtin_schedules.md) for complete API reference of builtin schedules with mathematical formulas
+- See [Infrastructure](infrastructure.md) for complete API references of the syncronous schedules and helpers.
+- Read the [README](README.md) for installation and quick start.
+
+---
+## What is a Schedule?
+
+The term 'Schedule' as defined in this library is the same as in Canonical PyTorch: A multiplier that is applied to an initial hyperparameter. PyTorch schedulers work by computing a **multiplier** λ(t) that gets applied to initial parameter values:
+
+$$
+\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+$$
+
+To maintain maximal compatibility, we adopt PyTorch's conventions.
+
+**This means schedules set λ(t), NOT absolute values.**
+
+When you specify `warmup_to_value=1.0` and `anneal_to_value=0.1`, you're defining the multiplier curve. If your parameter starts at 0.001, the actual values will be 0.001 → 0.0001.
+
+**If you want absolute behavior, make sure to initialize new schedule hyperparameters to 1.0**
+
+---
 ## Built-In Schedules
 
-The library provides 13 pre-configured schedules covering common curve shapes. All work on any optimizer parameter via the `schedule_target` argument (defaults to `'lr'`).
+The library provides 13 pre-configured schedules covering common curve shapes. All work on any optimizer parameter via the `schedule_target` argument (defaults to `'lr'`). Adding more schedules to the synchronous
+schedule list allows scheduling multiple things at once on different parameters. For reasons that shall
+be explained shortly, you should still use a SynchronousSchedule even when only scheduling one object.
 
 ### Quick Example
-
 ```python
 import torch.nn as nn
 from torch.optim import AdamW
@@ -54,12 +80,13 @@ optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 # Schedule weight decay with cosine annealing
 scheduler = sa.cosine_annealing_with_warmup(
     optimizer,
-    warmup_to_value=0.01,
-    anneal_to_value=0.001,
+    warmup_to_value=1.0,
+    anneal_to_value=0.01,
     num_warmup_steps=100,
     num_training_steps=1000,
     schedule_target='weight_decay'
 )
+scheduler = sa.SynchronousSchedule([scheduler])
 
 # Training loop
 for step in range(1000):
@@ -95,9 +122,13 @@ For complete API documentation including mathematical formulas, parameter specif
 
 For maximum flexibility, use `arbitrary_schedule_factory` to apply any PyTorch scheduler to any parameter.
 
-### Basic Usage
+### Basic Understanding
 
-The basic idea is the user passes in a factory that can be invoked with an optimizer to produce a schedule attached to that optimizer. ScheduleAnything then constructs an optimizer that will in fact bind to and schedule the targetted feature name.
+The basic idea is the user passes in a factory that can be invoked with an optimizer to produce a schedule attached to that optimizer. 
+
+Behind the scenes, ScheduleAnything then constructs a proxy optimizer with a learning rate that in fact represents the scheduled parameters - for example lr=0.1 might actually mean weight_decay=0.1. Changes to this rate are then passed on, through a transform, to the actual value in the optimizer. Since torch schedules know how to change learning rates, they can change this as well.
+
+For the most part, the user never needs to interact with these fake optimizers, but you may occasionally encounter them in error messages.
 
 ### When to Use `default_value`
 
@@ -108,9 +139,9 @@ The basic idea is the user passes in a factory that can be invoked with an optim
 optimizer = Adam(model.parameters(), lr=0.001, weight_decay=0.01)
 
 scheduler = sa.arbitrary_schedule_factory(
-    feature_name='weight_decay',
     optimizer=optimizer,
-    schedule_factory=lambda opt: CosineAnnealingLR(opt, T_max=100)
+    schedule_factory=lambda opt: CosineAnnealingLR(opt, T_max=100),
+    schedule_target='weight_decay',
 )
 ```
 
@@ -119,12 +150,19 @@ scheduler = sa.arbitrary_schedule_factory(
 ```python
 # Creating a custom parameter for the first time
 scheduler = sa.arbitrary_schedule_factory(
-    feature_name='my_custom_parameter',
     optimizer=optimizer,
     schedule_factory=lambda opt: ExponentialLR(opt, gamma=0.95),
-    default_value=1.0  # Sets initial value if not present
+    default_value=1.0,  # Base value multiplier applies to
+    schedule_target='gradient_clip_value',
+
 )
+
 ```
+
+
+Advanced users can, of course, just manually include it with separate values when initializing the optimizers param groups instead. Consult torch's optimizer documentation for details on this. 
+
+For complete API documentation including mathematical formulas, parameter specifications, and detailed examples, see [Utilities](infrastructure.md).
 
 ### Power User: Direct Optimizer Extension
 
@@ -136,15 +174,17 @@ sa.extend_optimizer(optimizer, 'gradient_clip_threshold', default_value=10.0)
 
 # Now schedule it
 scheduler = sa.arbitrary_schedule_factory(
-    feature_name='gradient_clip_threshold',
     optimizer=optimizer,
-    schedule_factory=lambda opt: StepLR(opt, step_size=100, gamma=0.5)
+    schedule_factory=lambda opt: StepLR(opt, step_size=100, gamma=0.5),
+    schedule_target='gradient_clip_threshold',
 )
 ```
 
 This is particularly useful when building optimizer wrappers or extending optimizer behavior. The Gradient Quality Control library uses this pattern to implement scheduled gradient norm thresholds and many other behaviors.
 
 ---
+
+For complete API documentation including mathematical formulas, parameter specifications, and detailed examples, see [Utilities](infrastructure.md). Power users are covered.
 
 ## Parallel Schedules
 
@@ -178,7 +218,7 @@ for step in range(1000):
     wd_scheduler.step()
 
     lr = lr_scheduler.last_lr()
-    wd = lr_scheduler.last_lr() # But it is actually the weight decay!
+    wd = wd_scheduler.last_lr() # But it is actually the weight decay!
 ```
 
 Neither of these are good things, but they are necessary to use raw torch schedules directly.
@@ -190,8 +230,8 @@ Neither of these are good things, but they are necessary to use raw torch schedu
 ```python
 lr_scheduler = sa.cosine_annealing_with_warmup(
     optimizer,
-    warmup_to_value=0.001,
-    anneal_to_value=0.00001,
+    warmup_to_value=1.0,
+    anneal_to_value=0.001,
     num_warmup_steps=100,
     num_training_steps=1000,
     schedule_target='lr'
@@ -199,8 +239,8 @@ lr_scheduler = sa.cosine_annealing_with_warmup(
 
 wd_scheduler = sa.quadratic_schedule_with_warmup(
     optimizer,
-    warmup_to_value=0.01,
-    anneal_to_value=0.1,
+    warmup_to_value=1.0,
+    anneal_to_value=0.01,
     num_warmup_steps=100,
     num_training_steps=1000,
     schedule_target='weight_decay'
@@ -225,7 +265,9 @@ current_wd = sync.get_last_schedule('weight_decay')
 current_lr = sync.get_last_lr()
 ```
 
-As such, it is generally recommended to use a SyncronousSchedule object.
+As such, it is generally recommended to use a SynchronousSchedule object.
+
+For complete API documentation including mathematical formulas, parameter specifications, and detailed examples, see [Utilities](infrastructure.md). Power users are covered.
 
 ---
 
@@ -237,13 +279,14 @@ As such, it is generally recommended to use a SyncronousSchedule object.
 
 **Initialize schedules through this system whenever possible** It's generally a better idea to initialize your learning rate schedule through this system rather than independently, as the system prevents schedule namespace collisions. If you need to know what schedule namespace collisions are, you're having a bad day.
 
-**The method name lies!** While calling `get_lr()` on individual schedules works, keep in mind the method name lies! It actually returns the bound schedule feature value, not necessarily learning rate. Getting the feature through `SynchronousSchedule` with `get_last_schedule(name)` doesn't have this problem - it's honest about what it returns.
+**The method name lies!** While calling `get_last_lr()` on individual `_LRSchedule` schedules works, keep in mind the method name lies! It actually returns the bound schedule feature value, not necessarily learning rate. Getting the feature through `SynchronousSchedule` with `get_last_schedule(name)` doesn't have this problem - it's honest about what it returns.
 
-**Check your serialization.** Make sure your optimizer serialization algorithms are up to snuff. This library injects custom elements into optimizer dictionaries. If you're just serializing the dictionary (like `torch.save(optimizer.state_dict())`), all is well. If you're constructing custom tuples by element name, you may have problems. For normal PyTorch optimizers, this should be no issue.
+**Check your serialization.** Make sure your optimizer serialization algorithms are up to snuff. This library injects custom elements into optimizer dictionaries. If you're just serializing the dictionary (like `torch.save(optimizer.state_dict())`), all is well. If you're constructing custom tuples by element name inside an overloaded `.state_dict()', and do not include the new terms, you may have problems. For normal PyTorch optimizers, this should be no issue.
 
 ---
 
 ## Next Steps
 
-- See [builtin schedules.md](builtin_schedules.md) for complete API reference with mathematical formulas
+- See [Built-In Schedules](builtin_schedules.md) for complete API reference of builtin schedules with mathematical formulas
+- See [Infrastructure](infrastructure.md) for complete API references of the syncronous schedules and helpers.
 - Read the [README](README.md) for installation and quick start.

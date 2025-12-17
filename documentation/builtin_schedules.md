@@ -4,9 +4,35 @@ Complete guide to all built-in schedules in `torch-schedule-anything`.
 
 This library provides curve primitives for scheduling any optimizer hyperparameter. These are research tools - you choose the curve shape based on your optimization problem, not based on prescriptive "use X for Y" rules.
 
----
 
+## What is a Schedule?
+
+The term 'Schedule' as defined in this library is the same as in canonical PyTorch: A multiplier that is applied to an initial hyperparameter. PyTorch schedulers work by computing a **multiplier** λ(t) that gets applied to initial parameter values:
+
+$$
+\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+$$
+
+To maintain maximal compatibility, we adopt PyTorch's conventions.
+
+**This means schedules set λ(t), NOT absolute values.**
+
+When you specify `warmup_to_value=1.0` and `anneal_to_value=0.1`, you're defining the multiplier curve. If your parameter starts at 0.001, the actual values will be 0.001 → 0.0001.
+
+**If you want absolute behavior, make sure to initialize new schedule hyperparameters to 1.0**
+
+
+## Navigation
+
+- See [User Guide](user_guide.md) for how to use the system.
+- See [Infrastructure](infrastructure.md) for complete API references of the syncronous schedules and helpers.
+- Read the [README](README.md) for installation and quick start.
+
+
+---
 ## Parameter Glossary
+
+All values that sound absolute are setting the multiplier **lambda(t)** not the value **value(t)**
 
 **Function Parameters:**
 - **`optimizer`**: The PyTorch optimizer to schedule
@@ -20,8 +46,12 @@ This library provides curve primitives for scheduling any optimizer hyperparamet
 - **`schedule_target`**: Which optimizer parameter to schedule. Default: `'lr'`
 
 **Mathematical Notation (used in formulas below):**
-- **`t`**: Current training step
-- **`initial_hyperparameter_value`**: The initial value of the target parameter in the optimizer's param_groups before the schedule is attached---
+- **`t`**: Current step, whatever the torch scheduler or user decides it is. WARNING: PyTorch initializes this at 1.
+- **`initial_hyperparameter_value`**: The initial value of the target parameter in the optimizer's param_groups before the schedule is attached
+- **`num_training_steps`**: Number of training batches or epochs.
+
+Schedules are stepped once per training step, as defined by the caller. Whether a training step corresponds to a batch, an epoch, or something else entirely is determined by the user, not this library.
+
 ---
 ## Understanding Inverse Warmup
 
@@ -100,8 +130,8 @@ $$
 ```python
 scheduler = sa.cosine_annealing_with_warmup(
     optimizer,
-    warmup_to_value=0.001,
-    anneal_to_value=0.00001,
+    warmup_to_value=1.0,
+    anneal_to_value=0.001,
     num_warmup_steps=100,
     num_training_steps=1000,
     schedule_target='lr'
@@ -559,34 +589,8 @@ $$
 
 ---
 
-### Advanced Usage
+## Next Steps
 
-#### Scheduling Multiple Parameters
-
-Use `SynchronousSchedule` to step multiple schedules together:
-
-```python
-lr_scheduler = sa.cosine_annealing_with_warmup(
-    optimizer,
-    warmup_to_value=0.001,
-    anneal_to_value=0.00001,
-    num_warmup_steps=100,
-    num_training_steps=1000,
-    schedule_target='lr'
-)
-
-wd_scheduler = sa.quadratic_schedule_with_warmup(
-    optimizer,
-    warmup_to_value=0.01,
-    anneal_to_value=0.1,
-    num_warmup_steps=100,
-    num_training_steps=1000,
-    schedule_target='weight_decay'
-)
-
-sync = sa.SynchronousSchedule([lr_scheduler, wd_scheduler])
-
-for step in range(1000):
-    # ... training ...
-    sync.step()
-```
+- See [User Guide](user_guide.md) for how to use the system.
+- See [Infrastructure](infrastructure.md) for complete API references of the syncronous schedules and helpers.
+- Read the [README](README.md) for installation and quick start.
