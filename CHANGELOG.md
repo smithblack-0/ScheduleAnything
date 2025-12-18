@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1 
+
+- Minor format fix in readme
+- Forgot 3.12 test in github test matrix.
+
 ## 1.0.0
 
 - Public release

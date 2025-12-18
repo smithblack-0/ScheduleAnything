@@ -209,4 +209,4 @@ MIT
 
 ## Contributing
 
-Issues and PRs welcome at [github.com/smithblack-0/ScheduleAnything](https://github.com/smithblack-0/ScheduleAnything)
+Issues and PRs welcome at [Github](https://github.com/smithblack-0/ScheduleAnything)
