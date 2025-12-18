@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "torch-schedule-anything"
-version = "0.4.0"
+version = "0.7.3"
 description = "Schedule any optimizer hyperparameter, not just learning rate"
 readme = "README.md"
 license = {text = "MIT"}
@@ -13,7 +13,7 @@ authors = [
 ]
 keywords = ["deep-learning", "pytorch", "optimization", "scheduler", "hyperparameter"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 4 - Production/Stable",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
