@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.2
+
+Built-in schedule implementations
+
+- Implemented all 13 builtin schedule functions in builtin_schedules.py
+- cosine_annealing_with_warmup and cosine_annealing_with_inverse_warmup
+- polynomial_decay variants (polynomial, linear, quadratic, sqrt - each with warmup/inverse)
+- constant schedule variants (warmup, inverse warmup, pure constant)
+- All schedules use LambdaLR with exact mathematical formulas from documentation
+- All builtin schedules exported from package __init__.py
+
 ## 0.5.1
 
 Test contract clarification for schedule_namespaces

@@ -13,12 +13,40 @@ from .infrastructure import (
     extend_optimizer,
     get_param_groups_regrouped_by_key,
 )
+from .builtin_schedules import (
+    cosine_annealing_with_warmup,
+    cosine_annealing_with_inverse_warmup,
+    polynomial_decay_with_warmup,
+    polynomial_decay_with_inverse_warmup,
+    linear_decay_with_warmup,
+    linear_decay_with_inverse_warmup,
+    quadratic_decay_with_warmup,
+    quadratic_decay_with_inverse_warmup,
+    sqrt_decay_with_warmup,
+    sqrt_decay_with_inverse_warmup,
+    constant_with_warmup,
+    constant_with_inverse_warmup,
+    constant_schedule,
+)
 
 __all__ = [
     "arbitrary_schedule_factory",
     "SynchronousSchedule",
     "extend_optimizer",
     "get_param_groups_regrouped_by_key",
+    "cosine_annealing_with_warmup",
+    "cosine_annealing_with_inverse_warmup",
+    "polynomial_decay_with_warmup",
+    "polynomial_decay_with_inverse_warmup",
+    "linear_decay_with_warmup",
+    "linear_decay_with_inverse_warmup",
+    "quadratic_decay_with_warmup",
+    "quadratic_decay_with_inverse_warmup",
+    "sqrt_decay_with_warmup",
+    "sqrt_decay_with_inverse_warmup",
+    "constant_with_warmup",
+    "constant_with_inverse_warmup",
+    "constant_schedule",
     "__version__",
 ]
 
