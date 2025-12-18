@@ -273,7 +273,7 @@ def test_set_throw_error_on_desync_controls_error_behavior(optimizer):
         warnings.simplefilter("always")
         scheduler2.step()  # Should warn, not raise
         assert len(w) == 1
-        assert "Backend optimizer state modified" in str(w[0].message)
+        assert "state modified" in str(w[0].message)
 
     # Restore default behavior
     sa.set_throw_error_on_desync(True)

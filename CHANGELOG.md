@@ -2,6 +2,9 @@
 
 ## 0.6.0
 
+Beginning of final audit and quality control.
+Human, LLM corrections.
+
 Adapter and core infrastructure audit (FINAL)
 
 - Renamed throw_errors_on_desync → set_throw_error_on_desync (consistency with naming conventions)
