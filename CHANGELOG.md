@@ -1,18 +1,42 @@
 # Changelog
 
+## 0.6.3
+
+### Changed
+- Corrected major deficiencies in schedule contract tests.
+- All built-in schedules now explicitly test contract invariants at:
+  - step 0
+  - warmup completion (`t = num_warmup_steps`)
+  - immediate post-warmup (`t = num_warmup_steps + 1`)
+  - final step (`t = num_training_steps`)
+- Added interior-point checks for both warmup and annealing phases where applicable.
+- Added explicit endpoint assertions (e.g. `λ(M) == anneal_to_value`).
+- Added equivalence tests for alias schedules:
+  - linear ⇔ polynomial (P=1)
+  - quadratic ⇔ polynomial (P=2)
+  - sqrt ⇔ polynomial (P=0.5)
+  - including inverse-warmup variants.
+- Expanded test docstrings to reflect full documented formulas.
+
+### Removed
+- Removed redundant boundary-only tests now fully covered by per-schedule contract tests:
+  - `test_warmup_boundary_values`
+  - `test_inverse_warmup_boundary_values`
+
 ## 0.6.2
 
 Fixed load_state_dict bug with proxy desync
 
 **CRITICAL BUG FIX**: ProxyDictByLR now survives optimizer.load_state_dict()
 - Changed ProxyDictByLR to accept get_dictionary callback instead of direct dict reference
-- Made .dictionary a property that invokes callback (always returns current dict)
+- Made .dictionary on ProxyDictByLR a property that invokes callback (always returns current dict)
 - ArbitraryScheduleAdapter now passes closures: `lambda i=i: self.optimizer.param_groups[i]`
 - Removed desync detection error raising (load_state_dict causes expected "desyncs")
 - Replaced with auto-resync: proxy automatically updates cache when backend changes
 - Removed set_throw_error_on_desync from public API (no longer needed)
 - Removed desync tests (test_desync_detection_raises_error, test_set_throw_error_on_desync_controls_error_behavior)
 - **RESULT**: test_load_state_from_earlier_step now passes - checkpoint resume works correctly
+- HUMAN_AUDIT: Sync is approved. 
 
 ## 0.6.1
 

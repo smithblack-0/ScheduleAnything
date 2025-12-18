@@ -276,7 +276,6 @@ def test_load_state_dict_restores_state(optimizer):
     for _ in range(100):
         sync.step()
         values.append(optimizer.param_groups[0]["weight_decay"])
-        print(values[-1])
 
     # Revert
     optimizer.load_state_dict(checkpoint["optimizer"])
@@ -286,7 +285,6 @@ def test_load_state_dict_restores_state(optimizer):
     for value in values:
         sync.step()
         assert value == optimizer.param_groups[0]["weight_decay"]
-
 
 
 def test_state_dict_roundtrip(optimizer):

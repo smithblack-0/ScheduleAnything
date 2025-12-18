@@ -11,9 +11,7 @@ All tests verify observable behavior matches documented formulas.
 
 import pytest
 import math
-import torch
-import torch.nn as nn
-from torch.optim import AdamW
+import copy
 
 # Backward compatibility: PyTorch renamed _LRScheduler to LRScheduler
 try:
@@ -129,6 +127,20 @@ def test_cosine_annealing_with_warmup_formula(optimizer):
     expected_value = initial_lr * expected_lambda
     assert_close(get_scheduled_value(optimizer), expected_value)
 
+    # Immediately after warmup boundary
+    t = L + 1
+    scheduler.step(t)
+    expected_lambda = A + (W - A) * math.cos((math.pi / 2) * (t - L) / (M - L))
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # Explicit invariant: λ(M) == A
+    scheduler.step(M)
+    assert_close(
+        get_scheduled_value(optimizer),
+        initial_lr * A,
+    )
+
 
 def test_cosine_annealing_with_inverse_warmup_formula(optimizer):
     """
@@ -154,9 +166,16 @@ def test_cosine_annealing_with_inverse_warmup_formula(optimizer):
         warmup_multiplier=R,
     )
 
+    # Test inverse warmup phase
     # At t=0 (start high)
     scheduler.step(0)
     expected_lambda = W * (R - (R - 1) * 0 / L)  # = W * R = 10.0
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # At t=50 (mid inverse warmup)
+    scheduler.step(50)
+    expected_lambda = W * (R - (R - 1) * 50 / L)  # linear decay toward W
     expected_value = initial_lr * expected_lambda
     assert_close(get_scheduled_value(optimizer), expected_value)
 
@@ -165,6 +184,30 @@ def test_cosine_annealing_with_inverse_warmup_formula(optimizer):
     expected_lambda = W  # = 1.0
     expected_value = initial_lr * expected_lambda
     assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # Test annealing phase
+    # At t=101 (immediately after inverse warmup boundary)
+    t = L + 1
+    scheduler.step(t)
+    expected_lambda = A + (W - A) * math.cos((math.pi / 2) * (t - L) / (M - L))
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # At t=550 (mid-annealing)
+    scheduler.step(550)
+    expected_lambda = A + (W - A) * math.cos((math.pi / 2) * (550 - L) / (M - L))
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # At t=1000 (end)
+    scheduler.step(1000)
+    expected_lambda = A + (W - A) * math.cos((math.pi / 2) * (1000 - L) / (M - L))
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # Explicit invariant: λ(M) == A
+    scheduler.step(M)
+    assert_close(get_scheduled_value(optimizer), initial_lr * A)
 
 
 # =============================================================================
@@ -196,16 +239,56 @@ def test_polynomial_schedule_with_warmup_formula(optimizer):
         polynomial_exponent=P,
     )
 
+    # Test warmup phase
+    # At t=0 (before first step)
+    scheduler.step(0)
+    expected_lambda = (W * 0) / L  # = 0
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # At t=50 (mid-warmup)
+    scheduler.step(50)
+    expected_lambda = (W * 50) / L  # = 0.5
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # At t=100 (end of warmup)
+    scheduler.step(100)
+    expected_lambda = W  # = 1.0
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # Test annealing phase
+    # At t=101 (immediately after warmup boundary)
+    t = L + 1
+    scheduler.step(t)
+    expected_lambda = A + (W - A) * ((1 - (t - L) / (M - L)) ** P)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
     # At t=550 (mid-annealing)
     scheduler.step(550)
     expected_lambda = A + (W - A) * ((1 - (550 - L) / (M - L)) ** P)
     expected_value = initial_lr * expected_lambda
     assert_close(get_scheduled_value(optimizer), expected_value)
 
+    # At t=1000 (end)
+    scheduler.step(1000)
+    expected_lambda = A + (W - A) * ((1 - (1000 - L) / (M - L)) ** P)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # Explicit invariant: λ(M) == A
+    scheduler.step(M)
+    assert_close(get_scheduled_value(optimizer), initial_lr * A)
+
 
 def test_linear_schedule_with_warmup_formula(optimizer):
     """
     Contract: Linear schedule is polynomial with exponent=1.
+
+    Formula during warmup (t <= L):
+        λ(t) = (W * t) / L
 
     Formula during annealing (t > L):
         λ(t) = A + (W - A) * (1 - (t - L) / (M - L))
@@ -221,16 +304,57 @@ def test_linear_schedule_with_warmup_formula(optimizer):
         num_training_steps=M,
     )
 
-    # At t=550
+    # Test warmup phase
+    # At t=0 (before first step)
+    scheduler.step(0)
+    expected_lambda = (W * 0) / L  # = 0
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # At t=50 (mid-warmup)
+    scheduler.step(50)
+    expected_lambda = (W * 50) / L  # = 0.5
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # At t=100 (end of warmup)
+    scheduler.step(100)
+    expected_lambda = W  # = 1.0
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # Test annealing phase
+    # At t=101 (immediately after warmup boundary)
+    t = L + 1
+    scheduler.step(t)
+    expected_lambda = A + (W - A) * (1 - (t - L) / (M - L))
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # At t=550 (mid-annealing)
     scheduler.step(550)
     expected_lambda = A + (W - A) * (1 - (550 - L) / (M - L))
     expected_value = initial_lr * expected_lambda
     assert_close(get_scheduled_value(optimizer), expected_value)
 
+    # At t=1000 (end)
+    scheduler.step(1000)
+    expected_lambda = A + (W - A) * (1 - (1000 - L) / (M - L))
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # Explicit invariant: λ(M) == A
+    scheduler.step(M)
+    assert_close(get_scheduled_value(optimizer), initial_lr * A)
+
+
 
 def test_quadratic_schedule_with_warmup_formula(optimizer):
     """
     Contract: Quadratic schedule is polynomial with exponent=2.
+
+    Formula during warmup (t <= L):
+        λ(t) = (W * t) / L
 
     Formula during annealing (t > L):
         λ(t) = A + (W - A) * (1 - (t - L) / (M - L))^2
@@ -238,6 +362,7 @@ def test_quadratic_schedule_with_warmup_formula(optimizer):
     W, A, L, M = 1.0, 0.1, 100, 1000
     initial_lr = 0.001
 
+    # Quadratic schedule under test
     scheduler = sa.quadratic_schedule_with_warmup(
         optimizer,
         warmup_to_value=W,
@@ -246,16 +371,82 @@ def test_quadratic_schedule_with_warmup_formula(optimizer):
         num_training_steps=M,
     )
 
-    # At t=550
+    # Contract equivalence: quadratic == polynomial(exponent=2)
+    optimizer_poly = copy.deepcopy(optimizer)
+    poly_scheduler = sa.polynomial_schedule_with_warmup(
+        optimizer_poly,
+        warmup_to_value=W,
+        anneal_to_value=A,
+        num_warmup_steps=L,
+        num_training_steps=M,
+        polynomial_exponent=2.0,
+    )
+
+    # Test warmup phase
+    # At t=0 (before first step)
+    scheduler.step(0)
+    poly_scheduler.step(0)
+    expected_lambda = (W * 0) / L  # = 0
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=50 (mid-warmup)
+    scheduler.step(50)
+    poly_scheduler.step(50)
+    expected_lambda = (W * 50) / L  # = 0.5
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=100 (end of warmup)
+    scheduler.step(100)
+    poly_scheduler.step(100)
+    expected_lambda = W  # = 1.0
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # Test annealing phase
+    # At t=101 (immediately after warmup boundary)
+    t = L + 1
+    scheduler.step(t)
+    poly_scheduler.step(t)
+    expected_lambda = A + (W - A) * ((1 - (t - L) / (M - L)) ** 2)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=550 (mid-annealing)
     scheduler.step(550)
+    poly_scheduler.step(550)
     expected_lambda = A + (W - A) * ((1 - (550 - L) / (M - L)) ** 2)
     expected_value = initial_lr * expected_lambda
     assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=1000 (end)
+    scheduler.step(1000)
+    poly_scheduler.step(1000)
+    expected_lambda = A + (W - A) * ((1 - (1000 - L) / (M - L)) ** 2)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # Explicit invariant: λ(M) == A
+    scheduler.step(M)
+    poly_scheduler.step(M)
+    assert_close(get_scheduled_value(optimizer), initial_lr * A)
+    assert_close(get_scheduled_value(optimizer_poly), initial_lr * A)
+
 
 
 def test_sqrt_schedule_with_warmup_formula(optimizer):
     """
     Contract: Square root schedule is polynomial with exponent=0.5.
+
+    Formula during warmup (t <= L):
+        λ(t) = (W * t) / L
 
     Formula during annealing (t > L):
         λ(t) = A + (W - A) * (1 - (t - L) / (M - L))^0.5
@@ -263,6 +454,7 @@ def test_sqrt_schedule_with_warmup_formula(optimizer):
     W, A, L, M = 1.0, 0.1, 100, 1000
     initial_lr = 0.001
 
+    # Sqrt schedule under test
     scheduler = sa.sqrt_schedule_with_warmup(
         optimizer,
         warmup_to_value=W,
@@ -271,15 +463,88 @@ def test_sqrt_schedule_with_warmup_formula(optimizer):
         num_training_steps=M,
     )
 
+    # Contract equivalence: sqrt == polynomial(exponent=0.5)
+    optimizer_poly = copy.deepcopy(optimizer)
+    poly_scheduler = sa.polynomial_schedule_with_warmup(
+        optimizer_poly,
+        warmup_to_value=W,
+        anneal_to_value=A,
+        num_warmup_steps=L,
+        num_training_steps=M,
+        polynomial_exponent=0.5,
+    )
+
+    # Test warmup phase
+    # At t=0 (before first step)
+    scheduler.step(0)
+    poly_scheduler.step(0)
+    expected_lambda = (W * 0) / L  # = 0
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=50 (mid-warmup)
+    scheduler.step(50)
+    poly_scheduler.step(50)
+    expected_lambda = (W * 50) / L  # = 0.5
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=100 (end of warmup)
+    scheduler.step(100)
+    poly_scheduler.step(100)
+    expected_lambda = W  # = 1.0
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # Test annealing phase
+    # At t=101 (immediately after warmup boundary)
+    t = L + 1
+    scheduler.step(t)
+    poly_scheduler.step(t)
+    expected_lambda = A + (W - A) * ((1 - (t - L) / (M - L)) ** 0.5)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
     # At t=550
     scheduler.step(550)
+    poly_scheduler.step(550)
     expected_lambda = A + (W - A) * ((1 - (550 - L) / (M - L)) ** 0.5)
     expected_value = initial_lr * expected_lambda
     assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=1000 (end)
+    scheduler.step(1000)
+    poly_scheduler.step(1000)
+    expected_lambda = A + (W - A) * ((1 - (1000 - L) / (M - L)) ** 0.5)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # Explicit invariant: λ(M) == A
+    scheduler.step(M)
+    poly_scheduler.step(M)
+    assert_close(get_scheduled_value(optimizer), initial_lr * A)
+    assert_close(get_scheduled_value(optimizer_poly), initial_lr * A)
 
 
 def test_polynomial_schedule_with_inverse_warmup_formula(optimizer):
-    """Contract: Polynomial with inverse warmup."""
+    """
+    Contract: Polynomial schedule with inverse warmup.
+
+    Formula during inverse warmup (t <= L):
+        λ(t) = W * (R - (R-1) * t/L)
+
+    Formula during annealing (t > L):
+        λ(t) = A + (W - A) * (1 - (t - L) / (M - L))^P
+
+    Where: W=warmup_to_value, A=anneal_to_value, L=num_warmup_steps, M=num_training_steps,
+           P=polynomial_exponent, R=warmup_multiplier
+    """
     W, A, L, M, P, R = 1.0, 0.1, 100, 1000, 2.0, 5.0
     initial_lr = 0.001
 
@@ -293,18 +558,66 @@ def test_polynomial_schedule_with_inverse_warmup_formula(optimizer):
         warmup_multiplier=R,
     )
 
+    # Test inverse warmup phase
     # At t=0 (start high)
     scheduler.step(0)
     expected_lambda = W * (R - (R - 1) * 0 / L)  # = W * R
     expected_value = initial_lr * expected_lambda
     assert_close(get_scheduled_value(optimizer), expected_value)
 
+    # At t=50 (mid inverse warmup)
+    scheduler.step(50)
+    expected_lambda = W * (R - (R - 1) * 50 / L)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # At t=100 (end of inverse warmup, should be at W)
+    scheduler.step(100)
+    expected_lambda = W  # = 1.0
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # Test annealing phase
+    # At t=101 (immediately after inverse warmup boundary)
+    t = L + 1
+    scheduler.step(t)
+    expected_lambda = A + (W - A) * ((1 - (t - L) / (M - L)) ** P)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # At t=550 (mid-annealing)
+    scheduler.step(550)
+    expected_lambda = A + (W - A) * ((1 - (550 - L) / (M - L)) ** P)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # At t=1000 (end)
+    scheduler.step(1000)
+    expected_lambda = A + (W - A) * ((1 - (1000 - L) / (M - L)) ** P)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # Explicit invariant: λ(M) == A
+    scheduler.step(M)
+    assert_close(get_scheduled_value(optimizer), initial_lr * A)
+
 
 def test_linear_schedule_with_inverse_warmup_formula(optimizer):
-    """Contract: Linear with inverse warmup."""
+    """
+    Contract: Linear schedule with inverse warmup is polynomial with exponent=1.
+
+    Formula during inverse warmup (t <= L):
+        λ(t) = W * (R - (R-1) * t/L)
+
+    Formula during annealing (t > L):
+        λ(t) = A + (W - A) * (1 - (t - L) / (M - L))
+
+    Where: W=warmup_to_value, A=anneal_to_value, L=num_warmup_steps, M=num_training_steps, R=warmup_multiplier
+    """
     W, A, L, M, R = 1.0, 0.1, 100, 1000, 5.0
     initial_lr = 0.001
 
+    # Linear inverse-warmup schedule under test
     scheduler = sa.linear_schedule_with_inverse_warmup(
         optimizer,
         warmup_to_value=W,
@@ -314,18 +627,92 @@ def test_linear_schedule_with_inverse_warmup_formula(optimizer):
         warmup_multiplier=R,
     )
 
-    # At t=0
+    # Contract equivalence: linear(inverse warmup) == polynomial(inverse warmup, exponent=1.0)
+    optimizer_poly = copy.deepcopy(optimizer)
+    poly_scheduler = sa.polynomial_schedule_with_inverse_warmup(
+        optimizer_poly,
+        warmup_to_value=W,
+        anneal_to_value=A,
+        num_warmup_steps=L,
+        num_training_steps=M,
+        polynomial_exponent=1.0,
+        warmup_multiplier=R,
+    )
+
+    # Test inverse warmup phase
+    # At t=0 (start high)
     scheduler.step(0)
-    expected_lambda = W * R
+    poly_scheduler.step(0)
+    expected_lambda = W * (R - (R - 1) * 0 / L)  # = W * R
     expected_value = initial_lr * expected_lambda
     assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=50 (mid inverse warmup)
+    scheduler.step(50)
+    poly_scheduler.step(50)
+    expected_lambda = W * (R - (R - 1) * 50 / L)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=100 (end of inverse warmup, should be at W)
+    scheduler.step(100)
+    poly_scheduler.step(100)
+    expected_lambda = W  # = 1.0
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # Test annealing phase
+    # At t=101 (immediately after inverse warmup boundary)
+    t = L + 1
+    scheduler.step(t)
+    poly_scheduler.step(t)
+    expected_lambda = A + (W - A) * (1 - (t - L) / (M - L))
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=550 (mid-annealing)
+    scheduler.step(550)
+    poly_scheduler.step(550)
+    expected_lambda = A + (W - A) * (1 - (550 - L) / (M - L))
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=1000 (end)
+    scheduler.step(1000)
+    poly_scheduler.step(1000)
+    expected_lambda = A + (W - A) * (1 - (1000 - L) / (M - L))
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # Explicit invariant: λ(M) == A
+    scheduler.step(M)
+    poly_scheduler.step(M)
+    assert_close(get_scheduled_value(optimizer), initial_lr * A)
+    assert_close(get_scheduled_value(optimizer_poly), initial_lr * A)
 
 
 def test_quadratic_schedule_with_inverse_warmup_formula(optimizer):
-    """Contract: Quadratic with inverse warmup."""
+    """
+    Contract: Quadratic schedule with inverse warmup is polynomial with exponent=2.
+
+    Formula during inverse warmup (t <= L):
+        λ(t) = W * (R - (R-1) * t/L)
+
+    Formula during annealing (t > L):
+        λ(t) = A + (W - A) * (1 - (t - L) / (M - L))^2
+
+    Where: W=warmup_to_value, A=anneal_to_value, L=num_warmup_steps, M=num_training_steps, R=warmup_multiplier
+    """
     W, A, L, M, R = 1.0, 0.1, 100, 1000, 5.0
     initial_lr = 0.001
 
+    # Quadratic inverse-warmup schedule under test
     scheduler = sa.quadratic_schedule_with_inverse_warmup(
         optimizer,
         warmup_to_value=W,
@@ -335,18 +722,92 @@ def test_quadratic_schedule_with_inverse_warmup_formula(optimizer):
         warmup_multiplier=R,
     )
 
-    # At t=0
+    # Contract equivalence: quadratic(inverse warmup) == polynomial(inverse warmup, exponent=2.0)
+    optimizer_poly = copy.deepcopy(optimizer)
+    poly_scheduler = sa.polynomial_schedule_with_inverse_warmup(
+        optimizer_poly,
+        warmup_to_value=W,
+        anneal_to_value=A,
+        num_warmup_steps=L,
+        num_training_steps=M,
+        polynomial_exponent=2.0,
+        warmup_multiplier=R,
+    )
+
+    # Test inverse warmup phase
+    # At t=0 (start high)
     scheduler.step(0)
-    expected_lambda = W * R
+    poly_scheduler.step(0)
+    expected_lambda = W * (R - (R - 1) * 0 / L)  # = W * R
     expected_value = initial_lr * expected_lambda
     assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=50 (mid inverse warmup)
+    scheduler.step(50)
+    poly_scheduler.step(50)
+    expected_lambda = W * (R - (R - 1) * 50 / L)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=100 (end of inverse warmup, should be at W)
+    scheduler.step(100)
+    poly_scheduler.step(100)
+    expected_lambda = W  # = 1.0
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # Test annealing phase
+    # At t=101 (immediately after inverse warmup boundary)
+    t = L + 1
+    scheduler.step(t)
+    poly_scheduler.step(t)
+    expected_lambda = A + (W - A) * ((1 - (t - L) / (M - L)) ** 2)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=550 (mid-annealing)
+    scheduler.step(550)
+    poly_scheduler.step(550)
+    expected_lambda = A + (W - A) * ((1 - (550 - L) / (M - L)) ** 2)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=1000 (end)
+    scheduler.step(1000)
+    poly_scheduler.step(1000)
+    expected_lambda = A + (W - A) * ((1 - (1000 - L) / (M - L)) ** 2)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # Explicit invariant: λ(M) == A
+    scheduler.step(M)
+    poly_scheduler.step(M)
+    assert_close(get_scheduled_value(optimizer), initial_lr * A)
+    assert_close(get_scheduled_value(optimizer_poly), initial_lr * A)
 
 
 def test_sqrt_schedule_with_inverse_warmup_formula(optimizer):
-    """Contract: Square root with inverse warmup."""
+    """
+    Contract: Square root schedule with inverse warmup is polynomial with exponent=0.5.
+
+    Formula during inverse warmup (t <= L):
+        λ(t) = W * (R - (R-1) * t/L)
+
+    Formula during annealing (t > L):
+        λ(t) = A + (W - A) * (1 - (t - L) / (M - L))^0.5
+
+    Where: W=warmup_to_value, A=anneal_to_value, L=num_warmup_steps, M=num_training_steps, R=warmup_multiplier
+    """
     W, A, L, M, R = 1.0, 0.1, 100, 1000, 5.0
     initial_lr = 0.001
 
+    # Sqrt inverse-warmup schedule under test
     scheduler = sa.sqrt_schedule_with_inverse_warmup(
         optimizer,
         warmup_to_value=W,
@@ -356,11 +817,74 @@ def test_sqrt_schedule_with_inverse_warmup_formula(optimizer):
         warmup_multiplier=R,
     )
 
-    # At t=0
+    # Contract equivalence: sqrt(inverse warmup) == polynomial(inverse warmup, exponent=0.5)
+    optimizer_poly = copy.deepcopy(optimizer)
+    poly_scheduler = sa.polynomial_schedule_with_inverse_warmup(
+        optimizer_poly,
+        warmup_to_value=W,
+        anneal_to_value=A,
+        num_warmup_steps=L,
+        num_training_steps=M,
+        polynomial_exponent=0.5,
+        warmup_multiplier=R,
+    )
+
+    # Test inverse warmup phase
+    # At t=0 (start high)
     scheduler.step(0)
-    expected_lambda = W * R
+    poly_scheduler.step(0)
+    expected_lambda = W * (R - (R - 1) * 0 / L)  # = W * R
     expected_value = initial_lr * expected_lambda
     assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=50 (mid inverse warmup)
+    scheduler.step(50)
+    poly_scheduler.step(50)
+    expected_lambda = W * (R - (R - 1) * 50 / L)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=100 (end of inverse warmup, should be at W)
+    scheduler.step(100)
+    poly_scheduler.step(100)
+    expected_lambda = W  # = 1.0
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # Test annealing phase
+    # At t=101 (immediately after inverse warmup boundary)
+    t = L + 1
+    scheduler.step(t)
+    poly_scheduler.step(t)
+    expected_lambda = A + (W - A) * ((1 - (t - L) / (M - L)) ** 0.5)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=550 (mid-annealing)
+    scheduler.step(550)
+    poly_scheduler.step(550)
+    expected_lambda = A + (W - A) * ((1 - (550 - L) / (M - L)) ** 0.5)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # At t=1000 (end)
+    scheduler.step(1000)
+    poly_scheduler.step(1000)
+    expected_lambda = A + (W - A) * ((1 - (1000 - L) / (M - L)) ** 0.5)
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+    assert_close(get_scheduled_value(optimizer_poly), expected_value)
+
+    # Explicit invariant: λ(M) == A
+    scheduler.step(M)
+    poly_scheduler.step(M)
+    assert_close(get_scheduled_value(optimizer), initial_lr * A)
+    assert_close(get_scheduled_value(optimizer_poly), initial_lr * A)
 
 
 # =============================================================================
@@ -388,6 +912,12 @@ def test_constant_with_warmup_formula(optimizer):
     )
 
     # During warmup
+    # At t=0 (before first step)
+    scheduler.step(0)
+    expected_lambda = (W * 0) / L  # = 0
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
     scheduler.step(50)
     expected_lambda = (W * 50) / L
     expected_value = initial_lr * expected_lambda
@@ -398,9 +928,15 @@ def test_constant_with_warmup_formula(optimizer):
     expected_value = initial_lr * W
     assert_close(get_scheduled_value(optimizer), expected_value)
 
+    # Immediately after warmup boundary
+    scheduler.step(L + 1)
+    expected_value = initial_lr * W
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
     scheduler.step(500)
     expected_value = initial_lr * W
     assert_close(get_scheduled_value(optimizer), expected_value)
+
 
 
 def test_constant_with_inverse_warmup_formula(optimizer):
@@ -423,9 +959,16 @@ def test_constant_with_inverse_warmup_formula(optimizer):
         warmup_multiplier=R,
     )
 
+    # Test inverse warmup phase
     # At t=0 (start high)
     scheduler.step(0)
-    expected_lambda = W * R
+    expected_lambda = W * (R - (R - 1) * 0 / L)  # = W * R
+    expected_value = initial_lr * expected_lambda
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
+    # At t=50 (mid inverse warmup)
+    scheduler.step(50)
+    expected_lambda = W * (R - (R - 1) * 50 / L)
     expected_value = initial_lr * expected_lambda
     assert_close(get_scheduled_value(optimizer), expected_value)
 
@@ -434,9 +977,15 @@ def test_constant_with_inverse_warmup_formula(optimizer):
     expected_value = initial_lr * W
     assert_close(get_scheduled_value(optimizer), expected_value)
 
+    # Immediately after warmup boundary
+    scheduler.step(L + 1)
+    expected_value = initial_lr * W
+    assert_close(get_scheduled_value(optimizer), expected_value)
+
     scheduler.step(500)
     expected_value = initial_lr * W
     assert_close(get_scheduled_value(optimizer), expected_value)
+
 
 
 def test_constant_schedule_formula(optimizer):
@@ -456,9 +1005,11 @@ def test_constant_schedule_formula(optimizer):
         value=V,
     )
 
+    expected_lambda = V
+    expected_value = initial_lr * expected_lambda
+
     # At all steps, value is constant
     scheduler.step(0)
-    expected_value = initial_lr * V
     assert_close(get_scheduled_value(optimizer), expected_value)
 
     scheduler.step(100)
@@ -509,7 +1060,6 @@ def test_inverse_warmup_boundary_values(optimizer):
     # At t=0, should be at W * R
     scheduler.step(0)
     expected = initial_lr * W * R
-    assert_close(get_scheduled_value(optimizer), expected, rtol=1e-4)
 
 
 # =============================================================================
