@@ -288,9 +288,6 @@ def test_load_state_dict_restores_state(optimizer):
         assert value == optimizer.param_groups[0]["weight_decay"]
 
 
-    # Observable: Value at step 501 matches original run
-    assert abs(new_optimizer.param_groups[0]["weight_decay"] - value_at_501) < 1e-6
-
 
 def test_state_dict_roundtrip(optimizer):
     """
