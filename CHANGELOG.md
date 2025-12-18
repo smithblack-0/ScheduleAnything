@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.1
+
+Test contract clarification for schedule_namespaces
+
+- Added test_schedule_namespaces_routing_contract
+- Verifies non-'lr', non-existing keys route to schedule_namespaces
+- Contract: schedule_namespaces is part of black box API
+- Ensures keys don't pollute main param_group dict
+
 ## 0.5.0
 
 Core infrastructure implementation

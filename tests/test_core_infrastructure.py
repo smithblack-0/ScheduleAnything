@@ -24,6 +24,48 @@ import src.torch_schedule_anything as sa
 # =============================================================================
 
 
+def test_schedule_namespaces_routing_contract():
+    """
+    Contract: schedule_namespaces is part of the black box contract.
+    Observable: Non-'lr', non-existing keys route to schedule_namespaces, not main dict.
+
+    When a schedule sets a key that:
+    - Is NOT 'lr'
+    - Did NOT exist in original param_group
+
+    Then it MUST go to schedule_namespaces[schedule_target][key], not the main dict.
+    This prevents pollution and collision.
+    """
+    model = nn.Linear(10, 1)
+    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
+
+    # Create scheduler - StepLR will set 'initial_lr' internally
+    scheduler = sa.arbitrary_schedule_factory(
+        optimizer,
+        lambda opt: StepLR(opt, step_size=10, gamma=0.5),
+        schedule_target="weight_decay",
+    )
+
+    # Step the scheduler (this causes StepLR to set 'initial_lr')
+    scheduler.step()
+
+    # Contract: 'initial_lr' should NOT pollute the main param_group dict
+    # It should be in schedule_namespaces instead
+    param_group = optimizer.param_groups[0]
+
+    # Observable: schedule_namespaces exists and contains the schedule's namespace
+    assert "schedule_namespaces" in param_group
+    assert "weight_decay" in param_group["schedule_namespaces"]
+
+    # Observable: 'initial_lr' is routed to namespace, not main dict keys
+    # Main dict should only have original keys plus schedule_namespaces
+    main_keys = set(param_group.keys()) - {"schedule_namespaces"}
+    assert "initial_lr" not in main_keys  # Not polluting main dict
+
+    # Observable: 'initial_lr' is in the weight_decay schedule's namespace
+    assert "initial_lr" in param_group["schedule_namespaces"]["weight_decay"]
+
+
 def test_multiple_schedules_maintain_separate_state():
     """
     Contract: Multiple schedules can coexist without state collision.
