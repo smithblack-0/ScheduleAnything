@@ -39,15 +39,15 @@ The adapter is just a thin wrapper that creates proxies for each param_group.
 """
 
 import warnings
+from numbers import Number
 from collections import UserDict
-from typing import Optional, Any, Callable, Dict
+from typing import Optional, Any, Callable, Dict, TYPE_CHECKING
 
 from torch.optim import Optimizer
 from torch.optim.optimizer import StateDict
 
-
 # ================================================================================
-# Error Control
+# Error Control And Weirdness
 # ================================================================================
 
 THROW_ERROR_ON_DESYNC = True
@@ -63,6 +63,10 @@ def set_throw_error_on_desync(flag: bool):
     global THROW_ERROR_ON_DESYNC
     THROW_ERROR_ON_DESYNC = flag
 
+def get_extend_optimizer()->Callable[[Optimizer, str, Number, bool], Optimizer]:
+    """Delayed import to avoid circular reference"""
+    from .infrastructure import extend_optimizer
+    return extend_optimizer
 
 # ================================================================================
 # Proxy Dictionary with Per-Schedule Namespaces
@@ -363,8 +367,7 @@ class ArbitraryScheduleAdapter(Optimizer):
 
         # Ensure parameter exists (extend if needed)
         if default_value is not None:
-            from .infrastructure import extend_optimizer
-
+            extend_optimizer = get_extend_optimizer()
             self.optimizer = extend_optimizer(
                 optimizer, schedule_target, default_value, overwrite_values=False
             )
