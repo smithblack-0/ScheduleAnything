@@ -24,7 +24,6 @@ except ImportError:
 
 from .infrastructure import arbitrary_schedule_factory
 
-
 # =============================================================================
 # Cosine Schedules
 # =============================================================================

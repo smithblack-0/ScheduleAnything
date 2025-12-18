@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.1
+
+
+## 0.7.0
+
+- Ruff and black formatting fixes
+- Fixed issues in arbitrary_schedules with messages being too long
+
 ## 0.6.3
 
 ### Changed

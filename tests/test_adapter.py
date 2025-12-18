@@ -16,11 +16,10 @@ import pytest
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import LambdaLR, StepLR, ExponentialLR
+from torch.optim.lr_scheduler import ExponentialLR, LambdaLR, StepLR
 
 import src.torch_schedule_anything as sa
 from src.torch_schedule_anything.arbitrary_schedules import ArbitraryScheduleAdapter
-
 
 # =============================================================================
 # Adapter Contract Tests
@@ -51,7 +50,7 @@ def test_adapter_provides_schedule_target_field(optimizer):
     adapter = ArbitraryScheduleAdapter(optimizer, "weight_decay")
 
     # Observable: schedule_target field exists
-    assert hasattr(adapter, 'schedule_target')
+    assert hasattr(adapter, "schedule_target")
     assert adapter.schedule_target == "weight_decay"
 
 
@@ -196,5 +195,3 @@ def test_adapters_with_different_step_sizes_dont_interfere(optimizer):
     # Observable: Both continue evolving independently
     assert optimizer.param_groups[0]["weight_decay"] != wd_at_7
     assert optimizer.param_groups[0]["momentum"] != mom_at_7
-
-

@@ -11,7 +11,7 @@ All functions match the documented API specification exactly.
 """
 
 from numbers import Number
-from typing import Optional, Callable, List, Tuple, Dict, Any
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import torch
 from torch.nn import Parameter
@@ -24,7 +24,6 @@ except ImportError:
     from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 
 from .arbitrary_schedules import ArbitraryScheduleAdapter
-
 
 # ================================================================================
 # Arbitrary Schedule Factory

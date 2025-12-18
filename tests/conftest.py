@@ -10,7 +10,7 @@ Provides common test setup following black box testing principles:
 import pytest
 import torch
 import torch.nn as nn
-from torch.optim import AdamW, SGD
+from torch.optim import SGD, AdamW
 
 import src.torch_schedule_anything as sa
 
@@ -62,6 +62,7 @@ def setup_schedule():
         sched = setup_schedule(optimizer, "momentum", StepLR,
                               default_value=0.9, step_size=10, gamma=0.5)
     """
+
     def _setup(optimizer, param_name, scheduler_class, default_value=None, **scheduler_kwargs):
         """
         Args:
@@ -79,8 +80,9 @@ def setup_schedule():
         return sa.arbitrary_schedule_factory(
             optimizer,
             lambda opt: scheduler_class(opt, **scheduler_kwargs),
-            schedule_target=param_name
+            schedule_target=param_name,
         )
+
     return _setup
 
 
@@ -95,6 +97,7 @@ def setup_model_and_optimizer():
     Example:
         model, opt = setup_model_and_optimizer()
     """
+
     def _setup(lr=0.001, weight_decay=0.01):
         """
         Args:
@@ -107,4 +110,5 @@ def setup_model_and_optimizer():
         model = nn.Linear(10, 1)
         optimizer = AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
         return model, optimizer
+
     return _setup

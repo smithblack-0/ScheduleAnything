@@ -12,12 +12,12 @@ All tests verify observable behavior only, not implementation details.
 import pytest
 import torch
 import torch.nn as nn
-from torch.optim import AdamW, SGD
+from torch.optim import SGD, AdamW
 from torch.optim.lr_scheduler import (
-    StepLR,
     CosineAnnealingLR,
     ExponentialLR,
     LambdaLR,
+    StepLR,
 )
 
 # Backward compatibility: PyTorch renamed _LRScheduler to LRScheduler
@@ -27,7 +27,6 @@ except ImportError:
     from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 
 import src.torch_schedule_anything as sa
-
 
 # =============================================================================
 # arbitrary_schedule_factory Tests
@@ -234,6 +233,7 @@ def test_factory_with_multiple_param_groups(optimizer_with_multiple_param_groups
     assert opt.param_groups[0]["weight_decay"] == initial_wd_0 * 0.5
     assert opt.param_groups[1]["weight_decay"] == initial_wd_1 * 0.5
 
+
 def test_factory_throws_invalid_target(optimizer):
     """Test when trying to construct on an invalid target we throw"""
 
@@ -243,6 +243,7 @@ def test_factory_throws_invalid_target(optimizer):
             schedule_factory=lambda opt: StepLR(opt, step_size=1, gamma=0.5),
             schedule_target="burble",
         )
+
 
 # =============================================================================
 # extend_optimizer Tests

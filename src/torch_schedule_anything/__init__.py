@@ -7,26 +7,26 @@ using PyTorch's scheduler interface.
 
 from importlib.metadata import PackageNotFoundError, version
 
+from .builtin_schedules import (
+    constant_schedule,
+    constant_with_inverse_warmup,
+    constant_with_warmup,
+    cosine_annealing_with_inverse_warmup,
+    cosine_annealing_with_warmup,
+    linear_schedule_with_inverse_warmup,
+    linear_schedule_with_warmup,
+    polynomial_schedule_with_inverse_warmup,
+    polynomial_schedule_with_warmup,
+    quadratic_schedule_with_inverse_warmup,
+    quadratic_schedule_with_warmup,
+    sqrt_schedule_with_inverse_warmup,
+    sqrt_schedule_with_warmup,
+)
 from .infrastructure import (
-    arbitrary_schedule_factory,
     SynchronousSchedule,
+    arbitrary_schedule_factory,
     extend_optimizer,
     get_param_groups_regrouped_by_key,
-)
-from .builtin_schedules import (
-    cosine_annealing_with_warmup,
-    cosine_annealing_with_inverse_warmup,
-    polynomial_schedule_with_warmup,
-    polynomial_schedule_with_inverse_warmup,
-    linear_schedule_with_warmup,
-    linear_schedule_with_inverse_warmup,
-    quadratic_schedule_with_warmup,
-    quadratic_schedule_with_inverse_warmup,
-    sqrt_schedule_with_warmup,
-    sqrt_schedule_with_inverse_warmup,
-    constant_with_warmup,
-    constant_with_inverse_warmup,
-    constant_schedule,
 )
 
 __all__ = [

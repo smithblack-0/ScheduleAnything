@@ -15,10 +15,9 @@ import pytest
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import StepLR, ExponentialLR
+from torch.optim.lr_scheduler import ExponentialLR, StepLR
 
 import src.torch_schedule_anything as sa
-
 
 # =============================================================================
 # README Examples
@@ -471,7 +470,9 @@ def test_very_long_training():
     assert final_lr < 0.001  # Initial lr
 
 
-def test_state_dict_preserves_separate_schedule_states(optimizer, setup_schedule, setup_model_and_optimizer):
+def test_state_dict_preserves_separate_schedule_states(
+    optimizer, setup_schedule, setup_model_and_optimizer
+):
     """
     Contract: State dict save/load preserves each schedule's independent state.
     Why: Verifies checkpointing works correctly with multiple schedules.
@@ -481,7 +482,9 @@ def test_state_dict_preserves_separate_schedule_states(optimizer, setup_schedule
     For testing rewind behavior, see test_load_state_from_earlier_step in test_synchronous_schedule.py
     """
     wd_sched = setup_schedule(optimizer, "weight_decay", StepLR, step_size=5, gamma=0.5)
-    mom_sched = setup_schedule(optimizer, "momentum", StepLR, default_value=0.9, step_size=3, gamma=0.7)
+    mom_sched = setup_schedule(
+        optimizer, "momentum", StepLR, default_value=0.9, step_size=3, gamma=0.7
+    )
 
     sync = sa.SynchronousSchedule([wd_sched, mom_sched])
 
@@ -490,10 +493,7 @@ def test_state_dict_preserves_separate_schedule_states(optimizer, setup_schedule
         sync.step()
 
     # Save checkpoint (both optimizer and scheduler)
-    checkpoint = {
-        'optimizer': optimizer.state_dict(),
-        'scheduler': sync.state_dict()
-    }
+    checkpoint = {"optimizer": optimizer.state_dict(), "scheduler": sync.state_dict()}
 
     # Continue to get reference value at step 11
     sync.step()
@@ -503,12 +503,14 @@ def test_state_dict_preserves_separate_schedule_states(optimizer, setup_schedule
     # Create new optimizer and schedulers
     new_model, new_optimizer = setup_model_and_optimizer()
     new_wd_sched = setup_schedule(new_optimizer, "weight_decay", StepLR, step_size=5, gamma=0.5)
-    new_mom_sched = setup_schedule(new_optimizer, "momentum", StepLR, default_value=0.9, step_size=3, gamma=0.7)
+    new_mom_sched = setup_schedule(
+        new_optimizer, "momentum", StepLR, default_value=0.9, step_size=3, gamma=0.7
+    )
     new_sync = sa.SynchronousSchedule([new_wd_sched, new_mom_sched])
 
     # Load checkpoint
-    new_optimizer.load_state_dict(checkpoint['optimizer'])
-    new_sync.load_state_dict(checkpoint['scheduler'])
+    new_optimizer.load_state_dict(checkpoint["optimizer"])
+    new_sync.load_state_dict(checkpoint["scheduler"])
 
     # Step once from checkpoint (should be step 11)
     new_sync.step()

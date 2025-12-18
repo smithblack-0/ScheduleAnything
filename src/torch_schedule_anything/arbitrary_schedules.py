@@ -39,9 +39,9 @@ The adapter is just a thin wrapper that creates proxies for each param_group.
 """
 
 import warnings
-from numbers import Number
 from collections import UserDict
-from typing import Optional, Any, Callable, Dict, TYPE_CHECKING
+from numbers import Number
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
 from torch.optim import Optimizer
 from torch.optim.optimizer import StateDict
@@ -50,10 +50,13 @@ from torch.optim.optimizer import StateDict
 # Weirdness Isolation
 # ================================================================================
 
-def get_extend_optimizer()->Callable[[Optimizer, str, Number, bool], Optimizer]:
+
+def get_extend_optimizer() -> Callable[[Optimizer, str, Number, bool], Optimizer]:
     """Delayed import to avoid circular reference"""
     from .infrastructure import extend_optimizer
+
     return extend_optimizer
+
 
 # ================================================================================
 # Proxy Dictionary with Per-Schedule Namespaces
@@ -126,10 +129,11 @@ class ProxyDictByLR(UserDict):
         >>> assert proxy["lr"] == 0.005
     """
 
-    def __init__(self,
-                 proxy_key: str,
-                 get_dictionary: Callable[[], Dict[str, Any]],
-                 ):
+    def __init__(
+        self,
+        proxy_key: str,
+        get_dictionary: Callable[[], Dict[str, Any]],
+    ):
 
         # Store the dictionary getter callback
         self._get_dictionary = get_dictionary
@@ -207,9 +211,11 @@ class ProxyDictByLR(UserDict):
 
         elif key in self.existing_keys:
             # Can't overwrite original optimizer parameters
-            raise KeyError(
-                f"Key '{key}' existed in original optimizer dict and cannot be overwritten by schedule"
+            msg = (
+                f"Key '{key}' existed in original optimizer dict and"
+                f" cannot be overwritten by schedule"
             )
+            raise KeyError(msg)
 
         else:
             # Store in per-schedule namespace to avoid collisions
@@ -351,16 +357,22 @@ class ArbitraryScheduleAdapter(Optimizer):
 
     # Stub methods - this is not a real optimizer
     def step(self, closure: Optional[Callable[[], float]] = None):
-        raise NotImplementedError(
-            "ArbitraryScheduleAdapter is a stub. Use arbitrary_schedule_factory to create schedules."
+        msg = (
+            "ArbitraryScheduleAdapter is a stub. "
+            "Use arbitrary_schedule_factory to create schedules."
         )
+        raise NotImplementedError(msg)
 
     def load_state_dict(self, state_dict: StateDict) -> None:
-        raise NotImplementedError(
-            "ArbitraryScheduleAdapter is a stub. Use arbitrary_schedule_factory to create schedules."
+        msg = (
+            "ArbitraryScheduleAdapter is a stub. "
+            "Use arbitrary_schedule_factory to create schedules."
         )
+        raise NotImplementedError(msg)
 
     def state_dict(self) -> Dict[str, Any]:
-        raise NotImplementedError(
-            "ArbitraryScheduleAdapter is a stub. Use arbitrary_schedule_factory to create schedules."
+        msg = (
+            "ArbitraryScheduleAdapter is a stub. "
+            "Use arbitrary_schedule_factory to create schedules."
         )
+        raise NotImplementedError(msg)

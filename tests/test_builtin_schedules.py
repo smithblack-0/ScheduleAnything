@@ -9,9 +9,10 @@ Tests all 13 built-in schedules match their documented mathematical formulas fro
 All tests verify observable behavior matches documented formulas.
 """
 
-import pytest
-import math
 import copy
+import math
+
+import pytest
 
 # Backward compatibility: PyTorch renamed _LRScheduler to LRScheduler
 try:
@@ -20,7 +21,6 @@ except ImportError:
     from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 
 import src.torch_schedule_anything as sa
-
 
 # =============================================================================
 # Helper Functions
@@ -348,7 +348,6 @@ def test_linear_schedule_with_warmup_formula(optimizer):
     assert_close(get_scheduled_value(optimizer), initial_lr * A)
 
 
-
 def test_quadratic_schedule_with_warmup_formula(optimizer):
     """
     Contract: Quadratic schedule is polynomial with exponent=2.
@@ -438,7 +437,6 @@ def test_quadratic_schedule_with_warmup_formula(optimizer):
     poly_scheduler.step(M)
     assert_close(get_scheduled_value(optimizer), initial_lr * A)
     assert_close(get_scheduled_value(optimizer_poly), initial_lr * A)
-
 
 
 def test_sqrt_schedule_with_warmup_formula(optimizer):
@@ -938,7 +936,6 @@ def test_constant_with_warmup_formula(optimizer):
     assert_close(get_scheduled_value(optimizer), expected_value)
 
 
-
 def test_constant_with_inverse_warmup_formula(optimizer):
     """
     Contract: Inverse warmup then holds constant.
@@ -985,7 +982,6 @@ def test_constant_with_inverse_warmup_formula(optimizer):
     scheduler.step(500)
     expected_value = initial_lr * W
     assert_close(get_scheduled_value(optimizer), expected_value)
-
 
 
 def test_constant_schedule_formula(optimizer):
@@ -1070,9 +1066,15 @@ def test_inverse_warmup_boundary_values(optimizer):
 @pytest.mark.parametrize(
     "schedule_func",
     [
-        lambda opt: sa.cosine_annealing_with_warmup(opt, 1.0, 0.1, 10, 100, schedule_target="custom"),
-        lambda opt: sa.linear_schedule_with_warmup(opt, 1.0, 0.1, 10, 100, schedule_target="custom"),
-        lambda opt: sa.quadratic_schedule_with_warmup(opt, 1.0, 0.1, 10, 100, schedule_target="custom"),
+        lambda opt: sa.cosine_annealing_with_warmup(
+            opt, 1.0, 0.1, 10, 100, schedule_target="custom"
+        ),
+        lambda opt: sa.linear_schedule_with_warmup(
+            opt, 1.0, 0.1, 10, 100, schedule_target="custom"
+        ),
+        lambda opt: sa.quadratic_schedule_with_warmup(
+            opt, 1.0, 0.1, 10, 100, schedule_target="custom"
+        ),
         lambda opt: sa.sqrt_schedule_with_warmup(opt, 1.0, 0.1, 10, 100, schedule_target="custom"),
         lambda opt: sa.constant_with_warmup(opt, 1.0, 10, schedule_target="custom"),
         lambda opt: sa.constant_schedule(opt, 0.5, schedule_target="custom"),
