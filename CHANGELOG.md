@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.0
+
+Core infrastructure implementation
+
+- arbitrary_schedules.py: Internal proxy mechanism with per-schedule namespace fix
+  - ProxyDictByLR with schedule_namespaces to prevent collision
+  - ArbitraryScheduleAdapter for parameter proxying
+  - Error control with throw_errors_on_desync
+- infrastructure.py: Complete public API matching documentation specification
+  - arbitrary_schedule_factory (signature matches docs exactly)
+  - SynchronousSchedule with fixed load_state_dict bug
+  - extend_optimizer utility
+  - get_param_groups_regrouped_by_key utility
+- All APIs standardized to use schedule_target parameter naming
+- Fixed namespace collision: Multiple schedules can now set initial_lr without conflict
+
 ## 0.4.2
 
 Complete API test suite - test-driven development on steroids

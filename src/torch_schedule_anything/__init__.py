@@ -7,7 +7,18 @@ using PyTorch's scheduler interface.
 
 from importlib.metadata import PackageNotFoundError, version
 
+from .infrastructure import (
+    arbitrary_schedule_factory,
+    SynchronousSchedule,
+    extend_optimizer,
+    get_param_groups_regrouped_by_key,
+)
+
 __all__ = [
+    "arbitrary_schedule_factory",
+    "SynchronousSchedule",
+    "extend_optimizer",
+    "get_param_groups_regrouped_by_key",
     "__version__",
 ]
 
