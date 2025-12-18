@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.2
+
+Complete API test suite - test-driven development on steroids
+
+- Black box tests for SynchronousSchedule coordination
+- Mathematical formula tests for all 13 built-in schedules
+- Integration tests for all documented examples (README, user guide)
+- State dict save/load workflow tests
+- Multi-parameter scheduling tests
+- Custom parameter creation and usage tests
+- Edge case and error handling tests
+- All user-facing APIs now have comprehensive test coverage
+
 ## 0.4.1
 
 Infrastructure API tests added following test-driven development
