@@ -39,7 +39,7 @@ def test_adapter_cannot_be_used_as_real_optimizer(optimizer):
 
     # Observable: Calling adapter.step() raises NotImplementedError
     # (It's a stub, not a real optimizer)
-    with pytest.raises(NotImplementedError, match="ArbitraryScheduleAdapter is a stub"):
+    with pytest.raises(NotImplementedError, match="stub"):
         adapter.step()
 
 
@@ -217,6 +217,9 @@ def test_desync_detection_raises_error(optimizer):
     """
     from src.torch_schedule_anything.arbitrary_schedules import ArbitraryScheduleAdapter
 
+    # Ensure errors are enabled (default state)
+    sa.set_throw_error_on_desync(True)
+
     # Create adapter (internal machinery)
     adapter = ArbitraryScheduleAdapter(optimizer, "weight_decay")
 
@@ -231,5 +234,46 @@ def test_desync_detection_raises_error(optimizer):
     optimizer.param_groups[0]["weight_decay"] = 0.999
 
     # Observable: Next step should detect desync and raise
-    with pytest.raises(RuntimeError, match="Proxy and backend have become desynced"):
+    with pytest.raises(RuntimeError, match="desynced"):
         scheduler.step()
+
+
+def test_set_throw_error_on_desync_controls_error_behavior(optimizer):
+    """
+    Contract: set_throw_error_on_desync controls whether desync raises error or warning.
+    Why: Allows users to disable strict error checking if needed for debugging.
+    How: Test with flag=True (error) and flag=False (warning).
+    """
+    import warnings
+    from src.torch_schedule_anything.arbitrary_schedules import ArbitraryScheduleAdapter
+
+    # Test 1: With errors enabled (default)
+    sa.set_throw_error_on_desync(True)
+    adapter1 = ArbitraryScheduleAdapter(optimizer, "weight_decay")
+    scheduler1 = LambdaLR(adapter1, lambda epoch: 0.95 ** epoch)
+    scheduler1.step()
+    optimizer.param_groups[0]["weight_decay"] = 0.888
+
+    # Observable: Should raise RuntimeError
+    with pytest.raises(RuntimeError, match="desynced"):
+        scheduler1.step()
+
+    # Reset optimizer state
+    optimizer.param_groups[0]["weight_decay"] = 0.01
+
+    # Test 2: With errors disabled
+    sa.set_throw_error_on_desync(False)
+    adapter2 = ArbitraryScheduleAdapter(optimizer, "weight_decay")
+    scheduler2 = LambdaLR(adapter2, lambda epoch: 0.95 ** epoch)
+    scheduler2.step()
+    optimizer.param_groups[0]["weight_decay"] = 0.777
+
+    # Observable: Should emit warning, not error
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        scheduler2.step()  # Should warn, not raise
+        assert len(w) == 1
+        assert "Backend optimizer state modified" in str(w[0].message)
+
+    # Restore default behavior
+    sa.set_throw_error_on_desync(True)

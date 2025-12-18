@@ -21,7 +21,7 @@ WHAT'S INSIDE:
 ==============
 - ArbitraryScheduleAdapter: Stub optimizer with param_groups that redirect 'lr' access
 - ProxyDictByLR: Dictionary proxy that intercepts and redirects 'lr' operations
-- throw_errors_on_desync(): Global control for error vs warning on desync detection
+- set_throw_error_on_desync(): Global control for error vs warning on desync detection
 
 INVARIANTS (Problems This Module Must Handle):
 ===============================================
@@ -53,7 +53,7 @@ from torch.optim.optimizer import StateDict
 THROW_ERROR_ON_DESYNC = True
 
 
-def throw_errors_on_desync(flag: bool):
+def set_throw_error_on_desync(flag: bool):
     """
     Control whether to throw errors when proxy and backend become desynced.
 
@@ -113,7 +113,7 @@ class ProxyDictByLR(UserDict):
       - Manual state modifications
 
     Fails fast: error raised on read, not on next write.
-    Disable with: throw_errors_on_desync(False) to get warnings instead.
+    Disable with: set_throw_error_on_desync(False) to get warnings instead.
 
     INITIALIZATION GUARD:
     =====================
@@ -304,7 +304,7 @@ class ProxyDictByLR(UserDict):
                         "Proxy and backend have become desynced. "
                         "Backend was modified directly without going through proxy. "
                         "This indicates schedules were set up incorrectly. "
-                        "To disable this error, use throw_errors_on_desync(False)"
+                        "To disable this error, use set_throw_error_on_desync(False)"
                     )
                     raise RuntimeError(msg)
                 else:
