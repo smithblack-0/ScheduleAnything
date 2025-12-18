@@ -1,22 +1,38 @@
 """
 Internal machinery for arbitrary schedule adapters.
 
-This module implements the proxy pattern that enables PyTorch schedulers (which are
-hardcoded to work with 'lr') to control ANY optimizer parameter by intercepting
-dictionary access and redirecting 'lr' operations to a target parameter.
+MODULE CONTRACT - What This Provides:
+======================================
+This module provides ArbitraryScheduleAdapter, a stub optimizer that allows PyTorch
+schedulers to control arbitrary optimizer parameters (not just 'lr').
 
-WHY THIS EXISTS:
-================
-PyTorch schedulers are hardcoded to look for and modify 'lr' in param_groups.
-We want to schedule other parameters (weight_decay, momentum, custom params).
-Solution: Present a "fake" optimizer where setting 'lr' actually sets the target parameter.
+OUTPUT:
+  ArbitraryScheduleAdapter(optimizer, schedule_target, default_value) -> Stub Optimizer
 
-THE PROXY MECHANISM:
-====================
-ProxyDictByLR wraps an optimizer's param_group dict:
-  - Reading proxy["lr"] returns backend[target_param]
-  - Writing proxy["lr"] = X sets backend[target_param] = X
-  - PyTorch scheduler thinks it's scheduling 'lr', but it's actually scheduling the target
+USAGE:
+  adapter = ArbitraryScheduleAdapter(optimizer, "weight_decay")
+  scheduler = StepLR(adapter, step_size=30, gamma=0.5)
+  scheduler.step()  # Now schedules weight_decay, not lr!
+
+CONTRACT:
+  - ArbitraryScheduleAdapter presents itself as an Optimizer to PyTorch schedulers
+  - It has param_groups that look like normal optimizer param_groups
+  - BUT: Setting 'lr' in these param_groups actually sets the target parameter
+  - The real optimizer's param_groups are modified in-place (no copies)
+
+Users don't typically call this directly - they use arbitrary_schedule_factory() from
+infrastructure.py, which handles the adapter creation and scheduler factory pattern.
+
+THE CORE DIFFICULTY - Proxy Mechanism:
+========================================
+PyTorch schedulers are hardcoded to look for 'lr' in param_groups. To schedule other
+parameters, we need to intercept dictionary access and redirect 'lr' operations.
+
+This is implemented via ProxyDictByLR, a specialized dictionary that:
+  - Wraps each param_group from the real optimizer
+  - Intercepts reads/writes to 'lr' and redirects to schedule_target
+  - Maintains a cache of 'lr' value (what scheduler thinks it set)
+  - Updates backend parameter (what optimizer actually uses)
 
 NAMESPACE COLLISION PROBLEM:
 ============================
@@ -34,19 +50,31 @@ SOLUTION: Per-schedule namespaces stored in param_group['schedule_namespaces'][t
 DESYNC DETECTION:
 =================
 The proxy caches 'lr' value. If someone modifies the backend directly (bypassing proxy),
-the cache becomes stale. We detect this on next write and raise RuntimeError.
+the cache becomes stale. We detect this on READ and raise RuntimeError.
 This catches incorrect scheduler setup or manual optimizer modifications.
+
+Desync check happens on every read of 'lr' - fails fast to prevent stale data propagation.
+Disable with: throw_errors_on_desync(False) to get warnings instead of errors.
 
 THREADING:
 ==========
-This class is NOT thread-safe. The desync check has a race condition:
+NOT thread-safe. The desync check has a race condition:
   - Thread A reads cached value
   - Thread B modifies backend
   - Thread A compares stale cached value to modified backend
   - False positive desync detection
+
 For typical PyTorch usage (single-threaded training loop), this is not a concern.
 
-This is internal infrastructure - users interact with the public API in infrastructure.py.
+MAINTAINER NOTES:
+=================
+The complexity here is primarily in ProxyDictByLR:
+  - __getitem__ and __setitem__ implement the core interception logic
+  - Initialization guard (_initialized flag) prevents infinite recursion during setup
+  - Backend reference (self.dictionary) is the REAL param_group (not a copy)
+  - Namespace routing keeps multiple schedules from colliding
+
+When debugging issues, start with ProxyDictByLR routing logic.
 """
 
 import warnings
@@ -94,12 +122,12 @@ class ProxyDictByLR(UserDict):
     PROXY BEHAVIOR:
     ===============
     Reading:
-      proxy["lr"]              → returns backend[proxy_key]
+      proxy["lr"]              → returns CACHED value (checks desync first!)
       proxy["existing_param"]  → returns backend["existing_param"]
       proxy["new_key"]         → returns schedule_namespaces[proxy_key]["new_key"]
 
     Writing:
-      proxy["lr"] = X          → sets backend[proxy_key] = X (and updates cache)
+      proxy["lr"] = X          → sets BOTH backend[proxy_key] = X AND cache = X
       proxy["existing_param"]  → RAISES KeyError (can't overwrite original params)
       proxy["new_key"] = Y     → sets schedule_namespaces[proxy_key]["new_key"] = Y
 
@@ -114,15 +142,16 @@ class ProxyDictByLR(UserDict):
 
     DESYNC DETECTION:
     =================
-    The proxy caches 'lr' value in self.data["lr"]. Before updating, it checks:
+    The proxy caches 'lr' value in self.data["lr"]. On each READ, it checks:
       - Cached value (self.data["lr"]) == Backend value (backend[proxy_key])
       - If they differ, someone bypassed the proxy → RuntimeError
 
-    This catches:
+    This catches (on first access after modification):
       - Direct modifications to optimizer.param_groups[i][target]
       - Incorrect scheduler initialization
       - Manual state modifications
 
+    Fails fast: error raised on read, not on next write.
     Disable with: throw_errors_on_desync(False) to get warnings instead.
 
     INITIALIZATION GUARD:
@@ -186,10 +215,9 @@ class ProxyDictByLR(UserDict):
         ROUTING LOGIC:
         ==============
         1. key == "lr":
-           - Check for desync (cached vs backend)
-           - If desynced: raise RuntimeError or warn
            - Update backend[proxy_key] = value
            - Update cache: self.data["lr"] = value
+           - Both must stay in sync for correct operation
 
         2. key in existing_keys (original param_group keys):
            - FORBIDDEN: Can't overwrite original optimizer parameters
@@ -201,13 +229,9 @@ class ProxyDictByLR(UserDict):
            - Ensures isolation between multiple schedules
            - Also update cache for consistency
 
-        DESYNC CHECK:
-        =============
-        Before updating 'lr', we verify:
-          super().__getitem__("lr") == self.dictionary[self.proxy_key]
-
-        This catches direct backend modifications that bypassed the proxy.
-        If detected, we either raise RuntimeError or warn based on global flag.
+        NOTE: Desync detection happens in __getitem__, not here.
+        When reading 'lr', we check if cache != backend and raise.
+        This catches backend modifications on first access (fail fast).
 
         INITIALIZATION GUARD:
         =====================
@@ -221,7 +245,6 @@ class ProxyDictByLR(UserDict):
 
         Raises:
             KeyError: If trying to overwrite an original param_group key
-            RuntimeError: If desync detected and THROW_ERROR_ON_DESYNC is True
         """
         # Handle initialization phase
         if not hasattr(self, "_initialized"):
@@ -229,23 +252,8 @@ class ProxyDictByLR(UserDict):
 
         # Main logic
         if key == "lr":
-            # Check for desync between cached proxy value and backend
-            if super().__getitem__("lr") != self.dictionary[self.proxy_key]:
-                if THROW_ERROR_ON_DESYNC:
-                    msg = (
-                        "Proxy and backend have become desynced. "
-                        "This indicates schedules were set up incorrectly. "
-                        "To disable this error, use throw_errors_on_desync(False)"
-                    )
-                    raise RuntimeError(msg)
-                else:
-                    msg = (
-                        "Backend optimizer state modified without going through proxy. "
-                        "Are schedulers hooked up correctly?"
-                    )
-                    warnings.warn(msg)
-
-            # Update both proxy and backend
+            # Update both proxy cache and backend
+            # Desync detection happens in __getitem__, not here
             self.dictionary[self.proxy_key] = value
             super().__setitem__(key, value)
 
@@ -276,9 +284,10 @@ class ProxyDictByLR(UserDict):
         ROUTING LOGIC:
         ==============
         1. key == "lr":
-           - ALWAYS return fresh value from backend: self.dictionary[self.proxy_key]
-           - Don't use cached value - backend is source of truth for reads
-           - This ensures we see external modifications immediately
+           - Return CACHED value: super().__getitem__("lr")
+           - But first: check for desync (cached != backend)
+           - If desynced: raise RuntimeError or warn
+           - Proxy presents the cached view, not backend view
 
         2. key in existing_keys (original param_group keys):
            - Return from backend: self.dictionary[key]
@@ -291,16 +300,26 @@ class ProxyDictByLR(UserDict):
            - Fallback to cached value if not found
            - This isolates scheduler-specific state
 
-        WHY NOT USE CACHE FOR 'lr':
-        ============================
-        We could return self.data["lr"] (the cached value), but we deliberately
-        return the backend value instead. This means:
-          - External modifications are visible immediately
-          - Proxy is "transparent" for reads
-          - Only writes go through interception logic
+        DESYNC DETECTION ON READ:
+        ==========================
+        Before returning cached 'lr', we check if backend was modified:
+          cached = super().__getitem__("lr")
+          if cached != self.dictionary[self.proxy_key]:
+              raise RuntimeError(...)  # Backend was modified directly!
 
-        Trade-off: This makes desync harder to detect on reads, but ensures
-        the proxy doesn't hide backend state changes.
+        This catches backend modifications immediately on first read.
+        Fails fast - better than returning stale data or catching on write.
+
+        WHY RETURN CACHED, NOT BACKEND:
+        ================================
+        The proxy OWNS the value. When scheduler sets lr, we update:
+          - Backend (so optimizer sees it)
+          - Cache (so proxy remembers it)
+
+        Returning cached value means:
+          - Proxy presents consistent view of what it last set
+          - Desync check catches when backend diverges
+          - Scheduler gets the value it expects (what it set)
 
         INITIALIZATION GUARD:
         =====================
@@ -315,13 +334,33 @@ class ProxyDictByLR(UserDict):
 
         Raises:
             KeyError: If key doesn't exist anywhere (proxy, backend, namespaces)
+            RuntimeError: If desync detected and THROW_ERROR_ON_DESYNC is True
         """
         if not hasattr(self, "_initialized"):
             return super().__getitem__(key)
 
         if key == "lr":
-            # Always get latest value from backend
-            return self.dictionary[self.proxy_key]
+            # Get cached value
+            cached = super().__getitem__("lr")
+
+            # Check for desync: has backend been modified directly?
+            if cached != self.dictionary[self.proxy_key]:
+                if THROW_ERROR_ON_DESYNC:
+                    msg = (
+                        "Proxy and backend have become desynced. "
+                        "Backend was modified directly without going through proxy. "
+                        "This indicates schedules were set up incorrectly. "
+                        "To disable this error, use throw_errors_on_desync(False)"
+                    )
+                    raise RuntimeError(msg)
+                else:
+                    msg = (
+                        "Backend optimizer state modified without going through proxy. "
+                        "Are schedulers hooked up correctly?"
+                    )
+                    warnings.warn(msg)
+
+            return cached
 
         elif key in self.existing_keys:
             # Get from backing dict
