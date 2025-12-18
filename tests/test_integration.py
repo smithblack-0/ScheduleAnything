@@ -15,7 +15,7 @@ import pytest
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import StepLR, ExponentialLR
 
 import src.torch_schedule_anything as sa
 
@@ -469,3 +469,139 @@ def test_very_long_training():
     final_lr = optimizer.param_groups[0]["lr"]
     assert final_lr > 0
     assert final_lr < 0.001  # Initial lr
+
+
+# =============================================================================
+# Multi-Schedule Behavioral Tests (from test_core_infrastructure.py)
+# =============================================================================
+
+
+def test_multiple_schedules_maintain_separate_state(optimizer, setup_schedule):
+    """
+    Contract: Multiple schedules coexist without state collision.
+    Why: Each schedule sets internal state (e.g., 'initial_lr') - must not clobber each other.
+    How: Run two schedules for 20 steps, verify both parameters evolved independently.
+    """
+    # Create two schedules on different parameters
+    wd_scheduler = setup_schedule(optimizer, "weight_decay", StepLR, step_size=10, gamma=0.5)
+    mom_scheduler = setup_schedule(optimizer, "momentum", StepLR, default_value=0.9, step_size=5, gamma=0.8)
+
+    sync = sa.SynchronousSchedule([wd_scheduler, mom_scheduler])
+
+    # Step 20 times
+    for _ in range(20):
+        sync.step()
+
+    # Observable: Each parameter evolved independently per its schedule
+    # weight_decay: step_size=10, so changed at step 10, 20
+    # momentum: step_size=5, so changed at steps 5, 10, 15, 20
+    final_wd = optimizer.param_groups[0]["weight_decay"]
+    final_mom = optimizer.param_groups[0]["momentum"]
+
+    assert final_wd != 0.01  # Changed from initial
+    assert final_mom != 0.9  # Changed from initial
+
+
+def test_three_schedules_coexist(optimizer, setup_schedule):
+    """
+    Contract: System supports multiple simultaneous schedules without conflicts.
+    Why: Ensures namespace isolation scales beyond two schedules.
+    How: Run three schedules together for 10 steps, verify all parameters evolved.
+    """
+    # Three different schedules
+    lr_sched = setup_schedule(optimizer, "lr", ExponentialLR, gamma=0.95)
+    wd_sched = setup_schedule(optimizer, "weight_decay", ExponentialLR, gamma=0.9)
+    custom_sched = setup_schedule(optimizer, "custom_param", ExponentialLR, default_value=5.0, gamma=0.85)
+
+    sync = sa.SynchronousSchedule([lr_sched, wd_sched, custom_sched])
+
+    for _ in range(10):
+        sync.step()
+
+    # Observable: All three parameters evolved
+    assert optimizer.param_groups[0]["lr"] != 0.001
+    assert optimizer.param_groups[0]["weight_decay"] != 0.01
+    assert optimizer.param_groups[0]["custom_param"] != 5.0
+
+
+def test_schedules_with_different_step_sizes_dont_interfere(optimizer, setup_schedule):
+    """
+    Contract: Schedules with different stepping behavior work independently.
+    Why: Ensures that different step_size parameters don't interfere across schedules.
+    How: Run two StepLR schedules with step_size=3 and step_size=7, verify both apply correctly.
+    """
+    # Different step sizes
+    wd_sched = setup_schedule(optimizer, "weight_decay", StepLR, step_size=3, gamma=0.5)
+    mom_sched = setup_schedule(optimizer, "momentum", StepLR, default_value=1.0, step_size=7, gamma=0.7)
+
+    sync = sa.SynchronousSchedule([wd_sched, mom_sched])
+
+    initial_wd = optimizer.param_groups[0]["weight_decay"]
+    initial_mom = optimizer.param_groups[0]["momentum"]
+
+    # Step to 7 (wd should change at 3 and 6, mom at 7)
+    for _ in range(7):
+        sync.step()
+
+    wd_at_7 = optimizer.param_groups[0]["weight_decay"]
+    mom_at_7 = optimizer.param_groups[0]["momentum"]
+
+    # Observable: weight_decay changed (stepped at 3 and 6)
+    assert wd_at_7 != initial_wd
+    # Observable: momentum changed (stepped at 7)
+    assert mom_at_7 != initial_mom
+
+    # Continue to 14
+    for _ in range(7):
+        sync.step()
+
+    # Observable: Both continue evolving independently
+    assert optimizer.param_groups[0]["weight_decay"] != wd_at_7
+    assert optimizer.param_groups[0]["momentum"] != mom_at_7
+
+
+def test_state_dict_preserves_separate_schedule_states(optimizer, setup_schedule, setup_model_and_optimizer):
+    """
+    Contract: State dict save/load preserves each schedule's independent state.
+    Why: Verifies checkpointing works correctly with multiple schedules.
+    How: Save at step 10, continue to 11, load in new instance, verify step 11 matches.
+
+    Note: This test uses NEW optimizer/scheduler instances to verify checkpoint transfer.
+    For testing rewind behavior, see test_load_state_from_earlier_step in test_synchronous_schedule.py
+    """
+    wd_sched = setup_schedule(optimizer, "weight_decay", StepLR, step_size=5, gamma=0.5)
+    mom_sched = setup_schedule(optimizer, "momentum", StepLR, default_value=0.9, step_size=3, gamma=0.7)
+
+    sync = sa.SynchronousSchedule([wd_sched, mom_sched])
+
+    # Step to 10
+    for _ in range(10):
+        sync.step()
+
+    # Save checkpoint (both optimizer and scheduler)
+    checkpoint = {
+        'optimizer': optimizer.state_dict(),
+        'scheduler': sync.state_dict()
+    }
+
+    # Continue to get reference value at step 11
+    sync.step()
+    wd_at_11 = optimizer.param_groups[0]["weight_decay"]
+    mom_at_11 = optimizer.param_groups[0]["momentum"]
+
+    # Create new optimizer and schedulers
+    new_model, new_optimizer = setup_model_and_optimizer()
+    new_wd_sched = setup_schedule(new_optimizer, "weight_decay", StepLR, step_size=5, gamma=0.5)
+    new_mom_sched = setup_schedule(new_optimizer, "momentum", StepLR, default_value=0.9, step_size=3, gamma=0.7)
+    new_sync = sa.SynchronousSchedule([new_wd_sched, new_mom_sched])
+
+    # Load checkpoint
+    new_optimizer.load_state_dict(checkpoint['optimizer'])
+    new_sync.load_state_dict(checkpoint['scheduler'])
+
+    # Step once from checkpoint (should be step 11)
+    new_sync.step()
+
+    # Observable: Values match step 11 from original run
+    assert abs(new_optimizer.param_groups[0]["weight_decay"] - wd_at_11) < 1e-6
+    assert abs(new_optimizer.param_groups[0]["momentum"] - mom_at_11) < 1e-6

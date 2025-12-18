@@ -34,6 +34,36 @@ import src.torch_schedule_anything as sa
 # =============================================================================
 
 
+def test_schedule_namespaces_routing_contract(optimizer):
+    """
+    Contract: Scheduler internal state routes to schedule_namespaces, not main param_group.
+    Why: Prevents multiple schedules from clobbering each other's internal state (e.g., 'initial_lr').
+    How: Verify 'initial_lr' exists in schedule_namespaces[weight_decay], NOT in main dict keys.
+    """
+    # Create scheduler - StepLR will set 'initial_lr' internally
+    scheduler = sa.arbitrary_schedule_factory(
+        optimizer,
+        lambda opt: StepLR(opt, step_size=10, gamma=0.5),
+        schedule_target="weight_decay",
+    )
+
+    # Step the scheduler (this causes StepLR to set 'initial_lr')
+    scheduler.step()
+
+    param_group = optimizer.param_groups[0]
+
+    # Observable: schedule_namespaces exists and contains the schedule's namespace
+    assert "schedule_namespaces" in param_group
+    assert "weight_decay" in param_group["schedule_namespaces"]
+
+    # Observable: 'initial_lr' is routed to namespace, not main dict keys
+    main_keys = set(param_group.keys()) - {"schedule_namespaces"}
+    assert "initial_lr" not in main_keys  # Not polluting main dict
+
+    # Observable: 'initial_lr' is in the weight_decay schedule's namespace
+    assert "initial_lr" in param_group["schedule_namespaces"]["weight_decay"]
+
+
 def test_factory_returns_scheduler(optimizer):
     """
     Contract: arbitrary_schedule_factory returns a PyTorch LRScheduler instance.

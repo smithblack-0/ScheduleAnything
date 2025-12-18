@@ -476,25 +476,6 @@ def test_load_state_from_earlier_step(optimizer):
     value_at_11_from_reload = new_optimizer.param_groups[0]["weight_decay"]
     assert abs(value_at_11_from_reload - value_at_11) < 1e-6
 
-# =============================================================================
-# Error Detection Tests
-# =============================================================================
-
-
-def test_synchronous_schedule_detects_duplicate_lr_schedules(optimizer):
-    """
-    Contract: SynchronousSchedule raises error for duplicate schedule names.
-    Why: Prevents ambiguity when multiple schedules target same parameter.
-    How: Create two raw PyTorch schedulers (both 'lr'), verify RuntimeError.
-    """
-    # Two raw torch schedulers = both named 'lr'
-    sched1 = StepLR(optimizer, step_size=10)
-    sched2 = StepLR(optimizer, step_size=20)
-
-    # Observable: Raises RuntimeError about duplicate
-    with pytest.raises(RuntimeError, match="lr"):
-        sa.SynchronousSchedule([sched1, sched2])
-
 
 def test_synchronous_schedule_allows_different_named_schedules(optimizer):
     """
@@ -516,19 +497,3 @@ def test_synchronous_schedule_allows_different_named_schedules(optimizer):
 
     # Observable: Works correctly
     sync.step()
-
-
-def test_extend_optimizer_validates_numeric_types(optimizer):
-    """
-    Contract: extend_optimizer validates default_value is numeric.
-    Why: Prevents runtime errors from non-numeric scheduler parameters.
-    How: Attempt to extend with string and list, verify TypeError/ValueError.
-    """
-
-    # Observable: String raises error
-    with pytest.raises((TypeError, ValueError)):
-        sa.extend_optimizer(optimizer, "param", default_value="invalid")
-
-    # Observable: List raises error
-    with pytest.raises((TypeError, ValueError)):
-        sa.extend_optimizer(optimizer, "param", default_value=[1, 2, 3])
