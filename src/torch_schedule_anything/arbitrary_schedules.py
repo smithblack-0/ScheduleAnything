@@ -148,7 +148,11 @@ class ProxyDictByLR(UserDict):
         >>> assert proxy["lr"] == 0.005
     """
 
-    def __init__(self, proxy_key: str, dictionary: Dict[str, Any]):
+    def __init__(self,
+                 proxy_key: str,
+                 get_dictionary: Dict[str, Any],
+                 ):
+
         # Validate proxy key exists
         if proxy_key not in dictionary:
             raise KeyError(f"Proxy key '{proxy_key}' not found in dictionary")

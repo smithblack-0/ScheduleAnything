@@ -14,7 +14,7 @@ import pytest
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import StepLR, ExponentialLR, CosineAnnealingLR
+from torch.optim.lr_scheduler import StepLR, ExponentialLR, CosineAnnealingLR, LinearLR
 
 import src.torch_schedule_anything as sa
 
@@ -231,7 +231,6 @@ def test_get_last_schedule_with_invalid_name(optimizer):
 # State Dict Tests
 # =============================================================================
 
-
 def test_state_dict_returns_dict(optimizer):
     """
     Contract: state_dict() returns dictionary.
@@ -254,20 +253,17 @@ def test_load_state_dict_restores_state(optimizer):
     Contract: State restoration works correctly.
     Observable: Loaded scheduler continues from saved step, produces correct next value.
 
-    Black box approach: Test that resuming from step 500 produces correct value at step 501.
+    Black box approach: Does checkpointing, stepping to 100, loading
+    and doing it again produce the same schedule?
     """
     # Create scheduler with known behavior (StepLR)
     sched = sa.arbitrary_schedule_factory(
         optimizer,
-        lambda opt: StepLR(opt, step_size=100, gamma=0.5),
+        lambda opt: LinearLR(opt, 1.0, 0.0,  total_iters=200),
         schedule_target="weight_decay",
     )
 
     sync = sa.SynchronousSchedule([sched])
-
-    # Step to 500
-    for _ in range(500):
-        sync.step()
 
     # Save checkpoint
     checkpoint = {
@@ -275,26 +271,22 @@ def test_load_state_dict_restores_state(optimizer):
         'scheduler': sync.state_dict()
     }
 
-    # Get reference value at step 501
-    sync.step()
-    value_at_501 = optimizer.param_groups[0]["weight_decay"]
+    # Step to 100, saving values
+    values = []
+    for _ in range(100):
+        sync.step()
+        values.append(optimizer.param_groups[0]["weight_decay"])
+        print(values[-1])
 
-    # Create new scheduler and optimizer
-    new_model = nn.Linear(10, 1)
-    new_optimizer = AdamW(new_model.parameters(), lr=0.001, weight_decay=0.01)
-    new_sched = sa.arbitrary_schedule_factory(
-        new_optimizer,
-        lambda opt: StepLR(opt, step_size=100, gamma=0.5),
-        schedule_target="weight_decay",
-    )
-    new_sync = sa.SynchronousSchedule([new_sched])
+    # Revert
+    optimizer.load_state_dict(checkpoint["optimizer"])
+    sync.load_state_dict(checkpoint["scheduler"])
 
-    # Load checkpoint
-    new_optimizer.load_state_dict(checkpoint['optimizer'])
-    new_sync.load_state_dict(checkpoint['scheduler'])
+    # Step to 100, throw if not matching
+    for value in values:
+        sync.step()
+        assert value == optimizer.param_groups[0]["weight_decay"]
 
-    # Step to 501
-    new_sync.step()
 
     # Observable: Value at step 501 matches original run
     assert abs(new_optimizer.param_groups[0]["weight_decay"] - value_at_501) < 1e-6
