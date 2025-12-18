@@ -13,6 +13,9 @@ from .infrastructure import (
     extend_optimizer,
     get_param_groups_regrouped_by_key,
 )
+from .arbitrary_schedules import (
+    set_throw_error_on_desync,
+)
 from .builtin_schedules import (
     cosine_annealing_with_warmup,
     cosine_annealing_with_inverse_warmup,
@@ -34,6 +37,7 @@ __all__ = [
     "SynchronousSchedule",
     "extend_optimizer",
     "get_param_groups_regrouped_by_key",
+    "set_throw_error_on_desync",
     "cosine_annealing_with_warmup",
     "cosine_annealing_with_inverse_warmup",
     "polynomial_schedule_with_warmup",
