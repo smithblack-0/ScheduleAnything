@@ -23,6 +23,10 @@
   - `test_warmup_boundary_values`
   - `test_inverse_warmup_boundary_values`
 
+### audit
+
+- Human audited, a bit at a time. Module now accepted.
+
 ## 0.6.2
 
 Fixed load_state_dict bug with proxy desync
