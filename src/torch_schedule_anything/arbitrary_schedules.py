@@ -1,10 +1,10 @@
 """
 Internal machinery for arbitrary schedule adapters.
 
-MODULE CONTRACT - What This Provides:
-======================================
-This module provides ArbitraryScheduleAdapter, a stub optimizer that allows PyTorch
-schedulers to control arbitrary optimizer parameters (not just 'lr').
+WHAT THIS PROVIDES:
+===================
+ArbitraryScheduleAdapter - A stub optimizer that allows PyTorch schedulers to control
+arbitrary optimizer parameters (not just 'lr').
 
 OUTPUT:
   ArbitraryScheduleAdapter(optimizer, schedule_target, default_value) -> Stub Optimizer
@@ -14,67 +14,28 @@ USAGE:
   scheduler = StepLR(adapter, step_size=30, gamma=0.5)
   scheduler.step()  # Now schedules weight_decay, not lr!
 
-CONTRACT:
-  - ArbitraryScheduleAdapter presents itself as an Optimizer to PyTorch schedulers
-  - It has param_groups that look like normal optimizer param_groups
-  - BUT: Setting 'lr' in these param_groups actually sets the target parameter
-  - The real optimizer's param_groups are modified in-place (no copies)
-
 Users don't typically call this directly - they use arbitrary_schedule_factory() from
 infrastructure.py, which handles the adapter creation and scheduler factory pattern.
 
-THE CORE DIFFICULTY - Proxy Mechanism:
-========================================
-PyTorch schedulers are hardcoded to look for 'lr' in param_groups. To schedule other
-parameters, we need to intercept dictionary access and redirect 'lr' operations.
+WHAT'S INSIDE:
+==============
+- ArbitraryScheduleAdapter: Stub optimizer with param_groups that redirect 'lr' access
+- ProxyDictByLR: Dictionary proxy that intercepts and redirects 'lr' operations
+- throw_errors_on_desync(): Global control for error vs warning on desync detection
 
-This is implemented via ProxyDictByLR, a specialized dictionary that:
-  - Wraps each param_group from the real optimizer
-  - Intercepts reads/writes to 'lr' and redirects to schedule_target
-  - Maintains a cache of 'lr' value (what scheduler thinks it set)
-  - Updates backend parameter (what optimizer actually uses)
+INVARIANTS (Problems This Module Must Handle):
+===============================================
+- PyTorch schedulers are hardcoded to look for 'lr' - we must intercept and redirect
+- Multiple schedules on same optimizer would collide on auxiliary keys (e.g., 'initial_lr')
+- Backend modifications bypass proxy - we must detect when cache and backend diverge
+- Proxy initialization could recurse infinitely - we must guard against this
 
-NAMESPACE COLLISION PROBLEM:
-============================
-Multiple schedules operating on the same optimizer create a collision:
-  - Schedule A (for 'lr') creates proxy, PyTorch's LambdaLR sets 'initial_lr' = X
-  - Schedule B (for 'weight_decay') creates proxy, PyTorch's LambdaLR sets 'initial_lr' = Y
-  - Both try to write to the same param_group dict → collision!
-
-SOLUTION: Per-schedule namespaces stored in param_group['schedule_namespaces'][target][key]
-  - Each schedule gets its own namespace keyed by its schedule_target
-  - 'initial_lr' for schedule A goes to: schedule_namespaces['lr']['initial_lr']
-  - 'initial_lr' for schedule B goes to: schedule_namespaces['weight_decay']['initial_lr']
-  - No collision, clean separation
-
-DESYNC DETECTION:
-=================
-The proxy caches 'lr' value. If someone modifies the backend directly (bypassing proxy),
-the cache becomes stale. We detect this on READ and raise RuntimeError.
-This catches incorrect scheduler setup or manual optimizer modifications.
-
-Desync check happens on every read of 'lr' - fails fast to prevent stale data propagation.
-Disable with: throw_errors_on_desync(False) to get warnings instead of errors.
-
-THREADING:
-==========
-NOT thread-safe. The desync check has a race condition:
-  - Thread A reads cached value
-  - Thread B modifies backend
-  - Thread A compares stale cached value to modified backend
-  - False positive desync detection
-
-For typical PyTorch usage (single-threaded training loop), this is not a concern.
+See class docstrings (especially ProxyDictByLR) for implementation details.
 
 MAINTAINER NOTES:
 =================
-The complexity here is primarily in ProxyDictByLR:
-  - __getitem__ and __setitem__ implement the core interception logic
-  - Initialization guard (_initialized flag) prevents infinite recursion during setup
-  - Backend reference (self.dictionary) is the REAL param_group (not a copy)
-  - Namespace routing keeps multiple schedules from colliding
-
-When debugging issues, start with ProxyDictByLR routing logic.
+The core complexity is in ProxyDictByLR - start there when debugging.
+The adapter is just a thin wrapper that creates proxies for each param_group.
 """
 
 import warnings
@@ -166,13 +127,6 @@ class ProxyDictByLR(UserDict):
     self.dictionary is the ACTUAL optimizer param_group dict (not a copy).
     All modifications are reflected immediately in the optimizer state.
     This is crucial - the proxy doesn't duplicate data, it redirects access.
-
-    THREAD SAFETY:
-    ==============
-    NOT thread-safe. Desync check has TOCTOU race:
-      Time-of-check: read cached value
-      Time-of-use: compare to backend (might have changed)
-    In practice, PyTorch training loops are single-threaded, so this is acceptable.
 
     Args:
         proxy_key: The parameter name to proxy as 'lr' (e.g., 'weight_decay', 'momentum')
