@@ -143,27 +143,17 @@ def test_schedules_with_different_step_sizes_dont_interfere(optimizer, setup_sch
 # =============================================================================
 
 
-def test_state_dict_preserves_separate_schedule_states():
+def test_state_dict_preserves_separate_schedule_states(optimizer, setup_schedule, setup_model_and_optimizer):
     """
     Contract: State dict save/load preserves each schedule's independent state.
-    Observable: After load, stepping produces correct values for each schedule.
+    Why: Verifies checkpointing works correctly with multiple schedules.
+    How: Save at step 10, continue to 11, load in new instance, verify step 11 matches.
+
+    Note: This test uses NEW optimizer/scheduler instances to verify checkpoint transfer.
+    For testing rewind behavior, see test_load_state_from_earlier_step in test_synchronous_schedule.py
     """
-    model = nn.Linear(10, 1)
-    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-
-    sa.extend_optimizer(optimizer, "momentum", default_value=0.9)
-
-    wd_sched = sa.arbitrary_schedule_factory(
-        optimizer,
-        lambda opt: StepLR(opt, step_size=5, gamma=0.5),
-        schedule_target="weight_decay",
-    )
-
-    mom_sched = sa.arbitrary_schedule_factory(
-        optimizer,
-        lambda opt: StepLR(opt, step_size=3, gamma=0.7),
-        schedule_target="momentum",
-    )
+    wd_sched = setup_schedule(optimizer, "weight_decay", StepLR, step_size=5, gamma=0.5)
+    mom_sched = setup_schedule(optimizer, "momentum", StepLR, default_value=0.9, step_size=3, gamma=0.7)
 
     sync = sa.SynchronousSchedule([wd_sched, mom_sched])
 
@@ -183,22 +173,9 @@ def test_state_dict_preserves_separate_schedule_states():
     mom_at_11 = optimizer.param_groups[0]["momentum"]
 
     # Create new optimizer and schedulers
-    new_model = nn.Linear(10, 1)
-    new_optimizer = AdamW(new_model.parameters(), lr=0.001, weight_decay=0.01)
-    sa.extend_optimizer(new_optimizer, "momentum", default_value=0.9)
-
-    new_wd_sched = sa.arbitrary_schedule_factory(
-        new_optimizer,
-        lambda opt: StepLR(opt, step_size=5, gamma=0.5),
-        schedule_target="weight_decay",
-    )
-
-    new_mom_sched = sa.arbitrary_schedule_factory(
-        new_optimizer,
-        lambda opt: StepLR(opt, step_size=3, gamma=0.7),
-        schedule_target="momentum",
-    )
-
+    new_model, new_optimizer = setup_model_and_optimizer()
+    new_wd_sched = setup_schedule(new_optimizer, "weight_decay", StepLR, step_size=5, gamma=0.5)
+    new_mom_sched = setup_schedule(new_optimizer, "momentum", StepLR, default_value=0.9, step_size=3, gamma=0.7)
     new_sync = sa.SynchronousSchedule([new_wd_sched, new_mom_sched])
 
     # Load checkpoint
@@ -218,14 +195,12 @@ def test_state_dict_preserves_separate_schedule_states():
 # =============================================================================
 
 
-def test_factory_with_lambda_scheduler():
+def test_factory_with_lambda_scheduler(optimizer):
     """
     Contract: Factory works with LambdaLR for custom curves.
-    Observable: Formula is initial_hyperparameter_value * lambda(t).
+    Why: Verifies factory supports PyTorch's LambdaLR scheduler.
+    How: Test formula is initial_hyperparameter_value * lambda(t) with constant lambda.
     """
-    model = nn.Linear(10, 1)
-    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-
     base_wd = optimizer.param_groups[0]["weight_decay"]  # 0.01
 
     # Custom lambda: constant multiplier of 2.0
@@ -244,14 +219,12 @@ def test_factory_with_lambda_scheduler():
     assert abs(optimizer.param_groups[0]["weight_decay"] - base_wd * 2.0) < 1e-6
 
 
-def test_factory_default_schedule_target_is_lr():
+def test_factory_default_schedule_target_is_lr(optimizer):
     """
-    Contract: factory's schedule_target defaults to 'lr'.
-    Observable: Omitting schedule_target controls learning rate.
+    Contract: schedule_target defaults to 'lr' when omitted.
+    Why: Ensures default behavior matches PyTorch scheduler convention.
+    How: Omit schedule_target, verify lr changes and weight_decay doesn't.
     """
-    model = nn.Linear(10, 1)
-    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-
     # Omit schedule_target - should default to 'lr'
     scheduler = sa.arbitrary_schedule_factory(
         optimizer,
@@ -269,14 +242,12 @@ def test_factory_default_schedule_target_is_lr():
     assert optimizer.param_groups[0]["weight_decay"] == initial_wd
 
 
-def test_factory_creates_parameter_with_default_value():
+def test_factory_creates_parameter_with_default_value(optimizer):
     """
     Contract: Factory creates missing parameter if default_value provided.
-    Observable: Parameter exists after factory call with default value.
+    Why: Allows scheduling custom parameters without manual extension.
+    How: Verify parameter doesn't exist, create scheduler with default_value, verify it exists.
     """
-    model = nn.Linear(10, 1)
-    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-
     # Parameter doesn't exist yet
     assert "custom_param" not in optimizer.param_groups[0]
 
@@ -297,14 +268,12 @@ def test_factory_creates_parameter_with_default_value():
 # =============================================================================
 
 
-def test_synchronous_schedule_detects_duplicate_lr_schedules():
+def test_synchronous_schedule_detects_duplicate_lr_schedules(optimizer):
     """
     Contract: SynchronousSchedule raises error for duplicate schedule names.
-    Observable: Two 'lr' schedules cause RuntimeError.
+    Why: Prevents ambiguity when multiple schedules target same parameter.
+    How: Create two raw PyTorch schedulers (both 'lr'), verify RuntimeError.
     """
-    model = nn.Linear(10, 1)
-    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-
     # Two raw torch schedulers = both named 'lr'
     sched1 = StepLR(optimizer, step_size=10)
     sched2 = StepLR(optimizer, step_size=20)
@@ -314,14 +283,12 @@ def test_synchronous_schedule_detects_duplicate_lr_schedules():
         sa.SynchronousSchedule([sched1, sched2])
 
 
-def test_synchronous_schedule_allows_different_named_schedules():
+def test_synchronous_schedule_allows_different_named_schedules(optimizer):
     """
     Contract: Different schedule names can coexist.
-    Observable: 'lr' + 'weight_decay' schedules work together.
+    Why: Ensures namespace separation works for mixed scheduler types.
+    How: Create 'lr' schedule and 'weight_decay' schedule, verify they work together.
     """
-    model = nn.Linear(10, 1)
-    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-
     # One for lr, one for weight_decay - different names
     lr_sched = StepLR(optimizer, step_size=10)
 
@@ -336,16 +303,14 @@ def test_synchronous_schedule_allows_different_named_schedules():
 
     # Observable: Works correctly
     sync.step()
-    assert True
 
 
-def test_extend_optimizer_validates_numeric_types():
+def test_extend_optimizer_validates_numeric_types(optimizer):
     """
     Contract: extend_optimizer validates default_value is numeric.
-    Observable: Non-numeric values raise TypeError/ValueError.
+    Why: Prevents runtime errors from non-numeric scheduler parameters.
+    How: Attempt to extend with string and list, verify TypeError/ValueError.
     """
-    model = nn.Linear(10, 1)
-    optimizer = AdamW(model.parameters(), lr=0.001)
 
     # Observable: String raises error
     with pytest.raises((TypeError, ValueError)):
@@ -361,49 +326,39 @@ def test_extend_optimizer_validates_numeric_types():
 # =============================================================================
 
 
-def test_factory_works_with_multiple_param_groups():
+def test_factory_works_with_multiple_param_groups(optimizer_with_multiple_param_groups):
     """
     Contract: Factory handles optimizers with multiple param groups.
-    Observable: All param groups are scheduled correctly.
+    Why: Verifies scheduling works correctly when optimizer has heterogeneous param groups.
+    How: Schedule weight_decay with different initial values, verify both groups update proportionally.
     """
-    model = nn.Sequential(nn.Linear(10, 5), nn.Linear(5, 1))
-    optimizer = AdamW(
-        [
-            {"params": model[0].parameters(), "lr": 0.001, "weight_decay": 0.01},
-            {"params": model[1].parameters(), "lr": 0.01, "weight_decay": 0.1},
-        ]
-    )
+    opt = optimizer_with_multiple_param_groups
 
     scheduler = sa.arbitrary_schedule_factory(
-        optimizer,
-        lambda opt: StepLR(opt, step_size=1, gamma=0.5),
+        opt,
+        lambda o: StepLR(o, step_size=1, gamma=0.5),
         schedule_target="weight_decay",
     )
 
-    initial_wd_0 = optimizer.param_groups[0]["weight_decay"]
-    initial_wd_1 = optimizer.param_groups[1]["weight_decay"]
+    initial_wd_0 = opt.param_groups[0]["weight_decay"]
+    initial_wd_1 = opt.param_groups[1]["weight_decay"]
 
     scheduler.step()
 
     # Observable: Both param groups updated
-    assert optimizer.param_groups[0]["weight_decay"] == initial_wd_0 * 0.5
-    assert optimizer.param_groups[1]["weight_decay"] == initial_wd_1 * 0.5
+    assert opt.param_groups[0]["weight_decay"] == initial_wd_0 * 0.5
+    assert opt.param_groups[1]["weight_decay"] == initial_wd_1 * 0.5
 
 
-def test_get_param_groups_regrouped_with_multiple_values():
+def test_get_param_groups_regrouped_with_multiple_values(optimizer_with_multiple_param_groups):
     """
     Contract: get_param_groups_regrouped_by_key groups by parameter value.
-    Observable: Different values create separate groups.
+    Why: Allows applying different operations to parameters with different scheduled values.
+    How: Verify two param groups with different weight_decay values create two separate groups.
     """
-    model = nn.Sequential(nn.Linear(10, 5), nn.Linear(5, 1))
-    optimizer = AdamW(
-        [
-            {"params": model[0].parameters(), "lr": 0.001, "weight_decay": 0.01},
-            {"params": model[1].parameters(), "lr": 0.01, "weight_decay": 0.1},
-        ]
-    )
+    opt = optimizer_with_multiple_param_groups
 
-    result = sa.get_param_groups_regrouped_by_key(optimizer, "weight_decay")
+    result = sa.get_param_groups_regrouped_by_key(opt, "weight_decay")
 
     # Observable: Two groups (different weight_decay values)
     assert len(result) == 2
@@ -418,14 +373,12 @@ def test_get_param_groups_regrouped_with_multiple_values():
 # =============================================================================
 
 
-def test_factory_works_with_existing_parameter_no_default():
+def test_factory_works_with_existing_parameter_no_default(optimizer):
     """
     Contract: Factory works with existing params without default_value.
-    Observable: Can schedule existing parameter without providing default.
+    Why: Verifies default_value is optional when parameter already exists.
+    How: Schedule weight_decay (which exists) without providing default_value.
     """
-    model = nn.Linear(10, 1)
-    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-
     # weight_decay already exists - no default_value needed
     scheduler = sa.arbitrary_schedule_factory(
         optimizer,
@@ -442,14 +395,12 @@ def test_factory_works_with_existing_parameter_no_default():
     assert optimizer.param_groups[0]["weight_decay"] == initial_wd * 0.5
 
 
-def test_extend_optimizer_with_overwrite_values():
+def test_extend_optimizer_with_overwrite_values(optimizer):
     """
-    Contract: extend_optimizer overwrites when flag is True.
-    Observable: Existing values replaced when overwrite_values=True.
+    Contract: extend_optimizer overwrites when overwrite_values=True.
+    Why: Allows resetting parameter values across all param groups.
+    How: Add parameter with value 5.0, extend again with 10.0 and overwrite=True, verify change.
     """
-    model = nn.Linear(10, 1)
-    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-
     # Add parameter
     sa.extend_optimizer(optimizer, "custom", default_value=5.0)
     assert optimizer.param_groups[0]["custom"] == 5.0
@@ -461,14 +412,12 @@ def test_extend_optimizer_with_overwrite_values():
     assert optimizer.param_groups[0]["custom"] == 10.0
 
 
-def test_extend_optimizer_without_overwrite_preserves():
+def test_extend_optimizer_without_overwrite_preserves(optimizer):
     """
-    Contract: extend_optimizer preserves existing values when overwrite_values=False.
-    Observable: Existing value unchanged.
+    Contract: extend_optimizer preserves existing values when overwrite_values=False (default).
+    Why: Prevents accidental parameter value changes when extending multiple times.
+    How: Add parameter with 5.0, extend again with 10.0 and overwrite=False, verify unchanged.
     """
-    model = nn.Linear(10, 1)
-    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-
     sa.extend_optimizer(optimizer, "custom", default_value=5.0)
     assert optimizer.param_groups[0]["custom"] == 5.0
 
@@ -479,20 +428,21 @@ def test_extend_optimizer_without_overwrite_preserves():
     assert optimizer.param_groups[0]["custom"] == 5.0
 
 
-def test_desync_detection_raises_error():
+def test_desync_detection_raises_error(optimizer):
     """
     Contract: Desync detection catches when backend is modified directly.
-    Observable: RuntimeError raised when proxy and backend are out of sync.
+    Why: Prevents silent bugs from bypassing the scheduler proxy.
+    How: Create proxy, modify backend directly, attempt to use proxy, verify RuntimeError.
 
-    This test verifies that the internal desync detection works by:
+    This test verifies internal desync detection by:
     1. Creating a scheduler with proxy
     2. Modifying the backend parameter directly (bypassing proxy)
     3. Attempting to use the scheduler, which should detect desync
     """
     from src.torch_schedule_anything.arbitrary_schedules import ArbitraryScheduleAdapter
 
-    model = nn.Linear(10, 1)
-    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
+    # Create adapter (internal machinery)
+    adapter = ArbitraryScheduleAdapter(optimizer, "weight_decay")
 
     # Create adapter (internal machinery)
     adapter = ArbitraryScheduleAdapter(optimizer, "weight_decay")
