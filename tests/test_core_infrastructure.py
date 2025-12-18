@@ -87,25 +87,10 @@ def test_three_schedules_coexist(optimizer, setup_schedule):
     How: Run three schedules together for 10 steps, verify all parameters evolved.
     """
     # Three different schedules
-    lr_sched = sa.arbitrary_schedule_factory(
-        optimizer,
-        lambda opt: ExponentialLR(opt, gamma=0.95),
-        schedule_target="lr",
-    )
+    lr_sched = setup_schedule(optimizer, "lr", ExponentialLR, gamma=0.95)
+    wd_sched = setup_schedule(optimizer, "weight_decay", ExponentialLR, gamma=0.9)
+    custom_sched = setup_schedule(optimizer, "custom_param", ExponentialLR, default_value=5.0, gamma=0.85)
 
-    wd_sched = sa.arbitrary_schedule_factory(
-        optimizer,
-        lambda opt: ExponentialLR(opt, gamma=0.9),
-        schedule_target="weight_decay",
-    )
-
-    custom_sched = sa.arbitrary_schedule_factory(
-        optimizer,
-        lambda opt: ExponentialLR(opt, gamma=0.85),
-        schedule_target="custom_param",
-    )
-
-    # Observable: All three coordinate successfully
     sync = sa.SynchronousSchedule([lr_sched, wd_sched, custom_sched])
 
     for _ in range(10):
@@ -117,28 +102,15 @@ def test_three_schedules_coexist(optimizer, setup_schedule):
     assert optimizer.param_groups[0]["custom_param"] != 5.0
 
 
-def test_schedules_with_different_step_sizes_dont_interfere():
+def test_schedules_with_different_step_sizes_dont_interfere(optimizer, setup_schedule):
     """
     Contract: Schedules with different stepping behavior work independently.
-    Observable: Each schedule's step logic applies correctly without interference.
+    Why: Ensures that different step_size parameters don't interfere across schedules.
+    How: Run two StepLR schedules with step_size=3 and step_size=7, verify both apply correctly.
     """
-    model = nn.Linear(10, 1)
-    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-
-    sa.extend_optimizer(optimizer, "momentum", default_value=1.0)
-
     # Different step sizes
-    wd_sched = sa.arbitrary_schedule_factory(
-        optimizer,
-        lambda opt: StepLR(opt, step_size=3, gamma=0.5),
-        schedule_target="weight_decay",
-    )
-
-    mom_sched = sa.arbitrary_schedule_factory(
-        optimizer,
-        lambda opt: StepLR(opt, step_size=7, gamma=0.7),
-        schedule_target="momentum",
-    )
+    wd_sched = setup_schedule(optimizer, "weight_decay", StepLR, step_size=3, gamma=0.5)
+    mom_sched = setup_schedule(optimizer, "momentum", StepLR, default_value=1.0, step_size=7, gamma=0.7)
 
     sync = sa.SynchronousSchedule([wd_sched, mom_sched])
 
