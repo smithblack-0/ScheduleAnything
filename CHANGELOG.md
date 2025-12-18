@@ -1,8 +1,9 @@
 # Changelog
 
-# 1.0.0
+## 1.0.0
 
 - Public release
+- This will now publish
 
 ## 0.7.3
 
