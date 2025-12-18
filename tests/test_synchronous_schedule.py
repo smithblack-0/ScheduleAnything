@@ -135,41 +135,6 @@ def test_step_updates_all_schedulers(optimizer):
     assert optimizer.param_groups[0]["custom_param_2"] == initial_val2 * 0.8
 
 
-def test_step_passes_epoch_to_all_schedulers(optimizer):
-    """
-    Contract: epoch parameter propagates to all schedulers.
-    Observable: Schedulers can use epoch for their logic.
-    """
-    sched1 = sa.arbitrary_schedule_factory(
-        optimizer, lambda opt: StepLR(opt, step_size=10), schedule_target="weight_decay"
-    )
-    sched2 = sa.arbitrary_schedule_factory(
-        optimizer, lambda opt: StepLR(opt, step_size=10), schedule_target="lr"
-    )
-
-    sync = sa.SynchronousSchedule([sched1, sched2])
-
-    # Observable: Passing epoch doesn't raise errors
-    sync.step(epoch=5)
-    sync.step(epoch=10)
-
-
-def test_step_without_epoch_works(optimizer):
-    """
-    Contract: epoch parameter is optional.
-    Observable: step() works without epoch argument.
-    """
-    sched = sa.arbitrary_schedule_factory(
-        optimizer, lambda opt: StepLR(opt, step_size=10), schedule_target="weight_decay"
-    )
-
-    sync = sa.SynchronousSchedule([sched])
-
-    # Observable: No errors without epoch
-    sync.step()
-    sync.step()
-
-
 # =============================================================================
 # Value Retrieval Tests
 # =============================================================================

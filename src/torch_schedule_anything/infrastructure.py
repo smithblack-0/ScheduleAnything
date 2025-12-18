@@ -116,15 +116,10 @@ class SynchronousSchedule(_LRScheduler):
         """Get list of all schedule names."""
         return list(self.schedules.keys())
 
-    def step(self, epoch: Optional[int] = None):
-        """
-        Step all managed schedulers together.
-
-        Args:
-            epoch: Optional epoch number to pass to schedulers
-        """
+    def step(self):
+        """Step all managed schedulers together."""
         for schedule in self.schedules.values():
-            schedule.step(epoch)
+            schedule.step()
 
     def get_last_schedule(self, name: str) -> List[float]:
         """
