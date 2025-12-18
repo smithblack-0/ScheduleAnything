@@ -234,7 +234,7 @@ def test_user_guide_factory_with_new_parameter():
     optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
     # Creating a custom parameter for the first time
-    scheduler = sa.arbitrary_schedule_factory(
+    sa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: StepLR(opt, step_size=100, gamma=0.95),
         default_value=1.0,
@@ -258,7 +258,7 @@ def test_user_guide_direct_optimizer_extension():
     sa.extend_optimizer(optimizer, "gradient_clip_threshold", default_value=10.0)
 
     # Now schedule it
-    scheduler = sa.arbitrary_schedule_factory(
+    sa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: StepLR(opt, step_size=100, gamma=0.5),
         schedule_target="gradient_clip_threshold",
@@ -479,7 +479,8 @@ def test_state_dict_preserves_separate_schedule_states(
     How: Save at step 10, continue to 11, load in new instance, verify step 11 matches.
 
     Note: This test uses NEW optimizer/scheduler instances to verify checkpoint transfer.
-    For testing rewind behavior, see test_load_state_from_earlier_step in test_synchronous_schedule.py
+    For testing rewind behavior, see test_load_state_from_earlier_step in
+    test_synchronous_schedule.py
     """
     wd_sched = setup_schedule(optimizer, "weight_decay", StepLR, step_size=5, gamma=0.5)
     mom_sched = setup_schedule(

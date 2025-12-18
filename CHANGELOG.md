@@ -5,7 +5,8 @@
 ## 0.7.3
 
 - Remove unused variables in test_integration
-
+- Fixed misc other issues
+- 
 ## 0.7.2
 
 - Lots of corrections in builtin_schedules, primarily shortening
