@@ -475,3 +475,25 @@ def test_load_state_from_earlier_step(optimizer):
     # Observable: Value at step 11 matches original run
     value_at_11_from_reload = new_optimizer.param_groups[0]["weight_decay"]
     assert abs(value_at_11_from_reload - value_at_11) < 1e-6
+
+
+def test_synchronous_schedule_allows_different_named_schedules(optimizer):
+    """
+    Contract: Different schedule names can coexist.
+    Why: Ensures namespace separation works for mixed scheduler types.
+    How: Create 'lr' schedule and 'weight_decay' schedule, verify they work together.
+    """
+    # One for lr, one for weight_decay - different names
+    lr_sched = StepLR(optimizer, step_size=10)
+
+    wd_sched = sa.arbitrary_schedule_factory(
+        optimizer,
+        lambda opt: StepLR(opt, step_size=5),
+        schedule_target="weight_decay",
+    )
+
+    # Observable: No error - different names
+    sync = sa.SynchronousSchedule([lr_sched, wd_sched])
+
+    # Observable: Works correctly
+    sync.step()

@@ -15,7 +15,7 @@ import pytest
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import StepLR, ExponentialLR
 
 import src.torch_schedule_anything as sa
 
@@ -469,3 +469,50 @@ def test_very_long_training():
     final_lr = optimizer.param_groups[0]["lr"]
     assert final_lr > 0
     assert final_lr < 0.001  # Initial lr
+
+
+def test_state_dict_preserves_separate_schedule_states(optimizer, setup_schedule, setup_model_and_optimizer):
+    """
+    Contract: State dict save/load preserves each schedule's independent state.
+    Why: Verifies checkpointing works correctly with multiple schedules.
+    How: Save at step 10, continue to 11, load in new instance, verify step 11 matches.
+
+    Note: This test uses NEW optimizer/scheduler instances to verify checkpoint transfer.
+    For testing rewind behavior, see test_load_state_from_earlier_step in test_synchronous_schedule.py
+    """
+    wd_sched = setup_schedule(optimizer, "weight_decay", StepLR, step_size=5, gamma=0.5)
+    mom_sched = setup_schedule(optimizer, "momentum", StepLR, default_value=0.9, step_size=3, gamma=0.7)
+
+    sync = sa.SynchronousSchedule([wd_sched, mom_sched])
+
+    # Step to 10
+    for _ in range(10):
+        sync.step()
+
+    # Save checkpoint (both optimizer and scheduler)
+    checkpoint = {
+        'optimizer': optimizer.state_dict(),
+        'scheduler': sync.state_dict()
+    }
+
+    # Continue to get reference value at step 11
+    sync.step()
+    wd_at_11 = optimizer.param_groups[0]["weight_decay"]
+    mom_at_11 = optimizer.param_groups[0]["momentum"]
+
+    # Create new optimizer and schedulers
+    new_model, new_optimizer = setup_model_and_optimizer()
+    new_wd_sched = setup_schedule(new_optimizer, "weight_decay", StepLR, step_size=5, gamma=0.5)
+    new_mom_sched = setup_schedule(new_optimizer, "momentum", StepLR, default_value=0.9, step_size=3, gamma=0.7)
+    new_sync = sa.SynchronousSchedule([new_wd_sched, new_mom_sched])
+
+    # Load checkpoint
+    new_optimizer.load_state_dict(checkpoint['optimizer'])
+    new_sync.load_state_dict(checkpoint['scheduler'])
+
+    # Step once from checkpoint (should be step 11)
+    new_sync.step()
+
+    # Observable: Values match step 11 from original run
+    assert abs(new_optimizer.param_groups[0]["weight_decay"] - wd_at_11) < 1e-6
+    assert abs(new_optimizer.param_groups[0]["momentum"] - mom_at_11) < 1e-6
