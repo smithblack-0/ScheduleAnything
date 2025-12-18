@@ -47,21 +47,8 @@ from torch.optim import Optimizer
 from torch.optim.optimizer import StateDict
 
 # ================================================================================
-# Error Control And Weirdness
+# Weirdness Isolation
 # ================================================================================
-
-THROW_ERROR_ON_DESYNC = True
-
-
-def set_throw_error_on_desync(flag: bool):
-    """
-    Control whether to throw errors when proxy and backend become desynced.
-
-    Args:
-        flag: If True, throw RuntimeError on desync. If False, emit warning.
-    """
-    global THROW_ERROR_ON_DESYNC
-    THROW_ERROR_ON_DESYNC = flag
 
 def get_extend_optimizer()->Callable[[Optimizer, str, Number, bool], Optimizer]:
     """Delayed import to avoid circular reference"""
@@ -105,19 +92,11 @@ class ProxyDictByLR(UserDict):
 
     This allows multiple schedules to coexist without interfering with each other.
 
-    DESYNC DETECTION:
-    =================
-    The proxy caches 'lr' value in self.data["lr"]. On each READ, it checks:
-      - Cached value (self.data["lr"]) == Backend value (backend[proxy_key])
-      - If they differ, someone bypassed the proxy → RuntimeError
-
-    This catches (on first access after modification):
-      - Direct modifications to optimizer.param_groups[i][target]
-      - Incorrect scheduler initialization
-      - Manual state modifications
-
-    Fails fast: error raised on read, not on next write.
-    Disable with: set_throw_error_on_desync(False) to get warnings instead.
+    AUTO-RESYNC BEHAVIOR:
+    =====================
+    When reading 'lr', the proxy automatically resyncs if cache != backend.
+    This handles optimizer.load_state_dict() which replaces param_group dicts.
+    The proxy's dictionary property uses a callback to always fetch current dict.
 
     INITIALIZATION GUARD:
     =====================
@@ -128,17 +107,16 @@ class ProxyDictByLR(UserDict):
 
     BACKEND REFERENCE:
     ==================
-    self.dictionary is the ACTUAL optimizer param_group dict (not a copy).
-    All modifications are reflected immediately in the optimizer state.
-    This is crucial - the proxy doesn't duplicate data, it redirects access.
+    self.dictionary is a PROPERTY that calls get_dictionary() callback.
+    This ensures the proxy always references the current param_group dict,
+    even after load_state_dict() replaces the dictionary objects.
 
     Args:
         proxy_key: The parameter name to proxy as 'lr' (e.g., 'weight_decay', 'momentum')
-        dictionary: The backing optimizer param_group dict (modified in-place)
+        get_dictionary: Callback that returns the current param_group dict
 
     Raises:
         KeyError: If proxy_key doesn't exist in dictionary
-        RuntimeError: If desync detected between proxy cache and backend
 
     Example:
         >>> param_group = {"lr": 0.001, "weight_decay": 0.01}
@@ -150,8 +128,12 @@ class ProxyDictByLR(UserDict):
 
     def __init__(self,
                  proxy_key: str,
-                 get_dictionary: Dict[str, Any],
+                 get_dictionary: Callable[[], Dict[str, Any]],
                  ):
+
+        # Store the dictionary getter callback
+        self._get_dictionary = get_dictionary
+        dictionary = get_dictionary()
 
         # Validate proxy key exists
         if proxy_key not in dictionary:
@@ -162,10 +144,14 @@ class ProxyDictByLR(UserDict):
         super().__init__(proxy_dictionary)
 
         # Backend references
-        self.dictionary = dictionary
         self.proxy_key = proxy_key
         self.existing_keys = list(dictionary.keys())
         self._initialized = True
+
+    @property
+    def dictionary(self) -> Dict[str, Any]:
+        """Get current dictionary by invoking callback. Always returns fresh reference."""
+        return self._get_dictionary()
 
     def __setitem__(self, key: str, value: Any) -> None:
         """
@@ -246,10 +232,10 @@ class ProxyDictByLR(UserDict):
         ROUTING LOGIC:
         ==============
         1. key == "lr":
-           - Return CACHED value: super().__getitem__("lr")
-           - But first: check for desync (cached != backend)
-           - If desynced: raise RuntimeError or warn
-           - Proxy presents the cached view, not backend view
+           - Get backend value: self.dictionary[self.proxy_key]
+           - Auto-resync cache if it doesn't match backend
+           - This handles load_state_dict() which replaces dictionaries
+           - Return current synchronized value
 
         2. key in existing_keys (original param_group keys):
            - Return from backend: self.dictionary[key]
@@ -262,26 +248,17 @@ class ProxyDictByLR(UserDict):
            - Fallback to cached value if not found
            - This isolates scheduler-specific state
 
-        DESYNC DETECTION ON READ:
-        ==========================
-        Before returning cached 'lr', we check if backend was modified:
+        AUTO-RESYNC ON READ:
+        ====================
+        When reading 'lr', we check if cache matches backend:
           cached = super().__getitem__("lr")
-          if cached != self.dictionary[self.proxy_key]:
-              raise RuntimeError(...)  # Backend was modified directly!
+          backend_value = self.dictionary[self.proxy_key]
+          if cached != backend_value:
+              super().__setitem__("lr", backend_value)  # Resync cache
 
-        This catches backend modifications immediately on first read.
-        Fails fast - better than returning stale data or catching on write.
-
-        WHY RETURN CACHED, NOT BACKEND:
-        ================================
-        The proxy OWNS the value. When scheduler sets lr, we update:
-          - Backend (so optimizer sees it)
-          - Cache (so proxy remembers it)
-
-        Returning cached value means:
-          - Proxy presents consistent view of what it last set
-          - Desync check catches when backend diverges
-          - Scheduler gets the value it expects (what it set)
+        This handles optimizer.load_state_dict() which replaces param_group dicts.
+        The proxy's dictionary property always fetches the current dict via callback,
+        so we detect and auto-fix mismatches transparently
 
         INITIALIZATION GUARD:
         =====================
@@ -296,31 +273,20 @@ class ProxyDictByLR(UserDict):
 
         Raises:
             KeyError: If key doesn't exist anywhere (proxy, backend, namespaces)
-            RuntimeError: If desync detected and THROW_ERROR_ON_DESYNC is True
         """
         if not hasattr(self, "_initialized"):
             return super().__getitem__(key)
 
         if key == "lr":
-            # Get cached value
-            cached = super().__getitem__("lr")
+            # Get current backend value
+            backend_value = self.dictionary[self.proxy_key]
 
-            # Check for desync: has backend been modified directly?
-            if cached != self.dictionary[self.proxy_key]:
-                if THROW_ERROR_ON_DESYNC:
-                    msg = (
-                        "Proxy and backend have become desynced. "
-                        "Backend was modified directly without going through proxy. "
-                        "This indicates schedules were set up incorrectly. "
-                        "To disable this error, use set_throw_error_on_desync(False)"
-                    )
-                    raise RuntimeError(msg)
-                else:
-                    msg = (
-                        "Backend optimizer state modified without going through proxy. "
-                        "Are schedulers hooked up correctly?"
-                    )
-                    warnings.warn(msg)
+            # Auto-resync: if cache doesn't match backend, update cache
+            # This happens after load_state_dict() when optimizer replaces dictionaries
+            cached = super().__getitem__("lr")
+            if cached != backend_value:
+                super().__setitem__("lr", backend_value)
+                cached = backend_value
 
             return cached
 
@@ -376,10 +342,11 @@ class ArbitraryScheduleAdapter(Optimizer):
                 optimizer, schedule_target, default_value, overwrite_values=False
             )
 
-        # Create proxy param_groups
+        # Create proxy param_groups with closures that always fetch current dict
+        # This ensures proxies remain valid even after optimizer.load_state_dict()
         self.param_groups = [
-            ProxyDictByLR(schedule_target, param_dict)
-            for param_dict in self.optimizer.param_groups
+            ProxyDictByLR(schedule_target, lambda i=i: self.optimizer.param_groups[i])
+            for i, _ in enumerate(self.optimizer.param_groups)
         ]
 
     # Stub methods - this is not a real optimizer

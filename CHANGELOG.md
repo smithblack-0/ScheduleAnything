@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.2
+
+Fixed load_state_dict bug with proxy desync
+
+**CRITICAL BUG FIX**: ProxyDictByLR now survives optimizer.load_state_dict()
+- Changed ProxyDictByLR to accept get_dictionary callback instead of direct dict reference
+- Made .dictionary a property that invokes callback (always returns current dict)
+- ArbitraryScheduleAdapter now passes closures: `lambda i=i: self.optimizer.param_groups[i]`
+- Removed desync detection error raising (load_state_dict causes expected "desyncs")
+- Replaced with auto-resync: proxy automatically updates cache when backend changes
+- Removed set_throw_error_on_desync from public API (no longer needed)
+- Removed desync tests (test_desync_detection_raises_error, test_set_throw_error_on_desync_controls_error_behavior)
+- **RESULT**: test_load_state_from_earlier_step now passes - checkpoint resume works correctly
+
 ## 0.6.1
 
 Infrastructure, excluding syncronous schedule
