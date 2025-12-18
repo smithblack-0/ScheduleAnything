@@ -234,6 +234,15 @@ def test_factory_with_multiple_param_groups(optimizer_with_multiple_param_groups
     assert opt.param_groups[0]["weight_decay"] == initial_wd_0 * 0.5
     assert opt.param_groups[1]["weight_decay"] == initial_wd_1 * 0.5
 
+def test_factory_throws_invalid_target(optimizer):
+    """Test when trying to construct on an invalid target we throw"""
+
+    with pytest.raises(KeyError):
+        scheduler = sa.arbitrary_schedule_factory(
+            optimizer=optimizer,
+            schedule_factory=lambda opt: StepLR(opt, step_size=1, gamma=0.5),
+            schedule_target="burble",
+        )
 
 # =============================================================================
 # extend_optimizer Tests

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1
+
+Infrastructure, excluding syncronous schedule
+
+- Added test verifying using factory on an invalid name will throw in an informative manner
+- Accepted non-syncronous schedule infrastructure as final.
+
 ## 0.6.0
 
 Beginning of final audit and quality control.
