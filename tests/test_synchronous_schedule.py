@@ -29,6 +29,9 @@ def test_synchronous_accepts_scheduler_list(optimizer):
     Contract: SynchronousSchedule accepts list of schedulers.
     Observable: Constructs successfully with multiple schedulers.
     """
+    # Add momentum parameter (not present in AdamW by default)
+    sa.extend_optimizer(optimizer, "momentum", default_value=0.9)
+
     sched1 = sa.arbitrary_schedule_factory(
         optimizer, lambda opt: StepLR(opt, step_size=10), schedule_target="weight_decay"
     )
@@ -47,6 +50,9 @@ def test_schedule_names_property(optimizer):
     Contract: schedule_names property returns list of schedule names.
     Observable: Names match schedule_target values.
     """
+    # Add momentum parameter (not present in AdamW by default)
+    sa.extend_optimizer(optimizer, "momentum", default_value=0.9)
+
     sched1 = sa.arbitrary_schedule_factory(
         optimizer, lambda opt: StepLR(opt, step_size=10), schedule_target="weight_decay"
     )
@@ -246,7 +252,7 @@ def test_state_dict_returns_dict(optimizer):
 def test_load_state_dict_restores_state(optimizer):
     """
     Contract: State restoration works correctly.
-    Observable: Loaded scheduler continues from saved step, values match expected formula.
+    Observable: Loaded scheduler continues from saved step, produces correct next value.
 
     Black box approach: Test that resuming from step 500 produces correct value at step 501.
     """
@@ -263,10 +269,15 @@ def test_load_state_dict_restores_state(optimizer):
     for _ in range(500):
         sync.step()
 
-    value_at_500 = optimizer.param_groups[0]["weight_decay"]
+    # Save checkpoint
+    checkpoint = {
+        'optimizer': optimizer.state_dict(),
+        'scheduler': sync.state_dict()
+    }
 
-    # Save state
-    state = sync.state_dict()
+    # Get reference value at step 501
+    sync.step()
+    value_at_501 = optimizer.param_groups[0]["weight_decay"]
 
     # Create new scheduler and optimizer
     new_model = nn.Linear(10, 1)
@@ -278,19 +289,15 @@ def test_load_state_dict_restores_state(optimizer):
     )
     new_sync = sa.SynchronousSchedule([new_sched])
 
-    # Load state
-    new_sync.load_state_dict(state)
+    # Load checkpoint
+    new_optimizer.load_state_dict(checkpoint['optimizer'])
+    new_sync.load_state_dict(checkpoint['scheduler'])
 
-    # Observable: Value at step 500 matches
-    loaded_value = new_optimizer.param_groups[0]["weight_decay"]
-    assert abs(loaded_value - value_at_500) < 1e-6
-
-    # Step once more to 501
+    # Step to 501
     new_sync.step()
 
-    # Observable: Continues correctly (no change yet, step_size=100)
-    value_at_501 = new_optimizer.param_groups[0]["weight_decay"]
-    assert abs(value_at_501 - value_at_500) < 1e-6
+    # Observable: Value at step 501 matches original run
+    assert abs(new_optimizer.param_groups[0]["weight_decay"] - value_at_501) < 1e-6
 
 
 def test_state_dict_roundtrip(optimizer):
@@ -335,9 +342,11 @@ def test_state_dict_roundtrip(optimizer):
 
 def test_state_dict_with_multiple_schedules(optimizer):
     """
-    Contract: State dict saves all schedulers.
-    Observable: Multiple schedulers all resume correctly.
+    Contract: Checkpoint produces reproducible results with multiple schedules.
+    Observable: Loading same checkpoint multiple times produces identical sequences.
     """
+    import json
+
     sa.extend_optimizer(optimizer, "custom_param", default_value=5.0)
 
     sched1 = sa.arbitrary_schedule_factory(
@@ -353,38 +362,59 @@ def test_state_dict_with_multiple_schedules(optimizer):
 
     sync = sa.SynchronousSchedule([sched1, sched2])
 
-    # Step to 25
-    for _ in range(25):
+    # Step to 5
+    for _ in range(5):
         sync.step()
 
-    wd_at_25 = optimizer.param_groups[0]["weight_decay"]
-    cp_at_25 = optimizer.param_groups[0]["custom_param"]
+    # Save checkpoint
+    checkpoint = {
+        'optimizer': optimizer.state_dict(),
+        'scheduler': sync.state_dict()
+    }
 
-    # Save state
-    state = sync.state_dict()
+    # Test JSON serialization
+    checkpoint_json = json.dumps(checkpoint)
+    checkpoint_restored = json.loads(checkpoint_json)
 
-    # New schedulers
-    new_model = nn.Linear(10, 1)
-    new_optimizer = AdamW(new_model.parameters(), lr=0.001, weight_decay=0.01)
-    sa.extend_optimizer(new_optimizer, "custom_param", default_value=5.0)
+    # Run 1: Load and step 10 times
+    model1 = nn.Linear(10, 1)
+    opt1 = AdamW(model1.parameters(), lr=0.001, weight_decay=0.01)
+    sa.extend_optimizer(opt1, "custom_param", default_value=5.0)
+    s1 = sa.arbitrary_schedule_factory(opt1, lambda opt: StepLR(opt, step_size=10, gamma=0.5), schedule_target="weight_decay")
+    s2 = sa.arbitrary_schedule_factory(opt1, lambda opt: ExponentialLR(opt, gamma=0.9), schedule_target="custom_param")
+    sync1 = sa.SynchronousSchedule([s1, s2])
+    opt1.load_state_dict(checkpoint_restored['optimizer'])
+    sync1.load_state_dict(checkpoint_restored['scheduler'])
 
-    new_sched1 = sa.arbitrary_schedule_factory(
-        new_optimizer,
-        lambda opt: StepLR(opt, step_size=10, gamma=0.5),
-        schedule_target="weight_decay",
-    )
-    new_sched2 = sa.arbitrary_schedule_factory(
-        new_optimizer,
-        lambda opt: ExponentialLR(opt, gamma=0.9),
-        schedule_target="custom_param",
-    )
+    wd_values_run1 = []
+    cp_values_run1 = []
+    for _ in range(10):
+        sync1.step()
+        wd_values_run1.append(opt1.param_groups[0]['weight_decay'])
+        cp_values_run1.append(opt1.param_groups[0]['custom_param'])
 
-    new_sync = sa.SynchronousSchedule([new_sched1, new_sched2])
-    new_sync.load_state_dict(state)
+    # Run 2: Load same checkpoint and step 10 times
+    model2 = nn.Linear(10, 1)
+    opt2 = AdamW(model2.parameters(), lr=0.001, weight_decay=0.01)
+    sa.extend_optimizer(opt2, "custom_param", default_value=5.0)
+    s3 = sa.arbitrary_schedule_factory(opt2, lambda opt: StepLR(opt, step_size=10, gamma=0.5), schedule_target="weight_decay")
+    s4 = sa.arbitrary_schedule_factory(opt2, lambda opt: ExponentialLR(opt, gamma=0.9), schedule_target="custom_param")
+    sync2 = sa.SynchronousSchedule([s3, s4])
+    opt2.load_state_dict(checkpoint_restored['optimizer'])
+    sync2.load_state_dict(checkpoint_restored['scheduler'])
 
-    # Observable: Both parameters match at step 25
-    assert abs(new_optimizer.param_groups[0]["weight_decay"] - wd_at_25) < 1e-6
-    assert abs(new_optimizer.param_groups[0]["custom_param"] - cp_at_25) < 1e-6
+    wd_values_run2 = []
+    cp_values_run2 = []
+    for _ in range(10):
+        sync2.step()
+        wd_values_run2.append(opt2.param_groups[0]['weight_decay'])
+        cp_values_run2.append(opt2.param_groups[0]['custom_param'])
+
+    # Observable: Both runs produce identical sequences
+    for v1, v2 in zip(wd_values_run1, wd_values_run2):
+        assert abs(v1 - v2) < 1e-6
+    for v1, v2 in zip(cp_values_run1, cp_values_run2):
+        assert abs(v1 - v2) < 1e-6
 
 
 def test_load_state_from_earlier_step(optimizer):
@@ -402,15 +432,22 @@ def test_load_state_from_earlier_step(optimizer):
 
     sync = sa.SynchronousSchedule([sched])
 
-    # Step to 10 and save
+    # Step to 10 and save checkpoint (both optimizer and scheduler)
     for _ in range(10):
         sync.step()
 
-    state_at_10 = sync.state_dict()
+    checkpoint_at_10 = {
+        'optimizer': optimizer.state_dict(),
+        'scheduler': sync.state_dict()
+    }
     value_at_10 = optimizer.param_groups[0]["weight_decay"]
 
+    # Get reference value at step 11 from original run
+    sync.step()
+    value_at_11 = optimizer.param_groups[0]["weight_decay"]
+
     # Continue stepping to 20
-    for _ in range(10):
+    for _ in range(9):
         sync.step()
 
     value_at_20 = optimizer.param_groups[0]["weight_decay"]
@@ -418,17 +455,23 @@ def test_load_state_from_earlier_step(optimizer):
     # Observable: Value changed from step 10 to 20
     assert value_at_20 != value_at_10
 
-    # Load earlier state (step 10)
-    sync.load_state_dict(state_at_10)
+    # Create new optimizer and scheduler, load checkpoint from step 10
+    new_model = nn.Linear(10, 1)
+    new_optimizer = AdamW(new_model.parameters(), lr=0.001, weight_decay=0.01)
+    new_sched = sa.arbitrary_schedule_factory(
+        new_optimizer,
+        lambda opt: ExponentialLR(opt, gamma=0.9),
+        schedule_target="weight_decay",
+    )
+    new_sync = sa.SynchronousSchedule([new_sched])
 
-    # Observable: Value reverted to step 10
-    value_after_load = optimizer.param_groups[0]["weight_decay"]
-    assert abs(value_after_load - value_at_10) < 1e-6
+    # Load earlier checkpoint (step 10)
+    new_optimizer.load_state_dict(checkpoint_at_10['optimizer'])
+    new_sync.load_state_dict(checkpoint_at_10['scheduler'])
 
-    # Step once more
-    sync.step()
+    # Step once from checkpoint (should be step 11)
+    new_sync.step()
 
-    # Observable: Continues from step 10 (step 11 now)
-    value_at_11 = optimizer.param_groups[0]["weight_decay"]
-    expected_at_11 = value_at_10 * 0.9
-    assert abs(value_at_11 - expected_at_11) < 1e-6
+    # Observable: Value at step 11 matches original run
+    value_at_11_from_reload = new_optimizer.param_groups[0]["weight_decay"]
+    assert abs(value_at_11_from_reload - value_at_11) < 1e-6

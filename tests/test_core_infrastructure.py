@@ -213,7 +213,7 @@ def test_schedules_with_different_step_sizes_dont_interfere():
 def test_state_dict_preserves_separate_schedule_states():
     """
     Contract: State dict save/load preserves each schedule's independent state.
-    Observable: After save/load, each schedule continues from its own state.
+    Observable: After load, stepping produces correct values for each schedule.
     """
     model = nn.Linear(10, 1)
     optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
@@ -238,11 +238,16 @@ def test_state_dict_preserves_separate_schedule_states():
     for _ in range(10):
         sync.step()
 
-    wd_at_10 = optimizer.param_groups[0]["weight_decay"]
-    mom_at_10 = optimizer.param_groups[0]["momentum"]
+    # Save checkpoint (both optimizer and scheduler)
+    checkpoint = {
+        'optimizer': optimizer.state_dict(),
+        'scheduler': sync.state_dict()
+    }
 
-    # Save state
-    state = sync.state_dict()
+    # Continue to get reference value at step 11
+    sync.step()
+    wd_at_11 = optimizer.param_groups[0]["weight_decay"]
+    mom_at_11 = optimizer.param_groups[0]["momentum"]
 
     # Create new optimizer and schedulers
     new_model = nn.Linear(10, 1)
@@ -263,20 +268,16 @@ def test_state_dict_preserves_separate_schedule_states():
 
     new_sync = sa.SynchronousSchedule([new_wd_sched, new_mom_sched])
 
-    # Load state
-    new_sync.load_state_dict(state)
+    # Load checkpoint
+    new_optimizer.load_state_dict(checkpoint['optimizer'])
+    new_sync.load_state_dict(checkpoint['scheduler'])
 
-    # Observable: Values match at step 10
-    assert abs(new_optimizer.param_groups[0]["weight_decay"] - wd_at_10) < 1e-6
-    assert abs(new_optimizer.param_groups[0]["momentum"] - mom_at_10) < 1e-6
-
-    # Step once more
+    # Step once from checkpoint (should be step 11)
     new_sync.step()
 
-    # Observable: Each continues from its own state independently
-    # (values should have changed per their respective schedules)
-    assert new_optimizer.param_groups[0]["weight_decay"] != wd_at_10
-    assert new_optimizer.param_groups[0]["momentum"] != mom_at_10
+    # Observable: Values match step 11 from original run
+    assert abs(new_optimizer.param_groups[0]["weight_decay"] - wd_at_11) < 1e-6
+    assert abs(new_optimizer.param_groups[0]["momentum"] - mom_at_11) < 1e-6
 
 
 # =============================================================================
@@ -287,25 +288,27 @@ def test_state_dict_preserves_separate_schedule_states():
 def test_factory_with_lambda_scheduler():
     """
     Contract: Factory works with LambdaLR for custom curves.
-    Observable: Custom lambda functions control arbitrary parameters.
+    Observable: Formula is initial_hyperparameter_value * lambda(t).
     """
     model = nn.Linear(10, 1)
     optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
-    # Custom lambda: multiply by 2 each step
+    base_wd = optimizer.param_groups[0]["weight_decay"]  # 0.01
+
+    # Custom lambda: constant multiplier of 2.0
     scheduler = sa.arbitrary_schedule_factory(
         optimizer,
-        lambda opt: LambdaLR(opt, lr_lambda=lambda epoch: 2.0),
+        lambda opt: LambdaLR(opt, lr_lambda=lambda t: 2.0),
         schedule_target="weight_decay",
     )
 
-    initial_wd = optimizer.param_groups[0]["weight_decay"]
+    # Observable: After init, value = base_wd * lambda(0) = 0.01 * 2.0 = 0.02
+    assert abs(optimizer.param_groups[0]["weight_decay"] - base_wd * 2.0) < 1e-6
 
     scheduler.step()
 
-    # Observable: Lambda function applied
-    expected_wd = initial_wd * 2.0
-    assert abs(optimizer.param_groups[0]["weight_decay"] - expected_wd) < 1e-6
+    # Observable: After step, value = base_wd * lambda(1) = 0.01 * 2.0 = 0.02 (constant lambda)
+    assert abs(optimizer.param_groups[0]["weight_decay"] - base_wd * 2.0) < 1e-6
 
 
 def test_factory_default_schedule_target_is_lr():

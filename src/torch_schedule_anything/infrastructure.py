@@ -16,7 +16,12 @@ from typing import Optional, Callable, List, Tuple, Dict, Any
 import torch
 from torch.nn import Parameter
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import _LRScheduler
+
+# Backward compatibility: PyTorch renamed _LRScheduler to LRScheduler
+try:
+    from torch.optim.lr_scheduler import LRScheduler
+except ImportError:
+    from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 
 from .arbitrary_schedules import ArbitraryScheduleAdapter
 
@@ -28,10 +33,10 @@ from .arbitrary_schedules import ArbitraryScheduleAdapter
 
 def arbitrary_schedule_factory(
     optimizer: Optimizer,
-    schedule_factory: Callable[[Optimizer], _LRScheduler],
+    schedule_factory: Callable[[Optimizer], LRScheduler],
     default_value: Optional[float] = None,
     schedule_target: str = "lr",
-) -> _LRScheduler:
+) -> LRScheduler:
     """
     Create a scheduler that controls any optimizer parameter.
 
@@ -66,7 +71,7 @@ def arbitrary_schedule_factory(
 # ================================================================================
 
 
-class SynchronousSchedule(_LRScheduler):
+class SynchronousSchedule(LRScheduler):
     """
     Coordinate multiple schedulers to step in lockstep.
 
@@ -85,7 +90,7 @@ class SynchronousSchedule(_LRScheduler):
         ...     sync.step()
     """
 
-    def __init__(self, schedules: List[_LRScheduler]):
+    def __init__(self, schedules: List[LRScheduler]):
         """
         Initialize with list of schedulers.
 

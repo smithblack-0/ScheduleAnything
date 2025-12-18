@@ -14,7 +14,12 @@ import math
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import _LRScheduler
+
+# Backward compatibility: PyTorch renamed _LRScheduler to LRScheduler
+try:
+    from torch.optim.lr_scheduler import LRScheduler
+except ImportError:
+    from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 
 import src.torch_schedule_anything as sa
 
@@ -40,7 +45,7 @@ def assert_close(actual, expected, rtol=1e-5):
 
 
 def test_cosine_annealing_with_warmup_returns_scheduler(optimizer):
-    """Contract: Returns _LRScheduler instance."""
+    """Contract: Returns LRScheduler instance."""
     scheduler = sa.cosine_annealing_with_warmup(
         optimizer,
         warmup_to_value=1.0,
@@ -48,7 +53,7 @@ def test_cosine_annealing_with_warmup_returns_scheduler(optimizer):
         num_warmup_steps=100,
         num_training_steps=1000,
     )
-    assert isinstance(scheduler, _LRScheduler)
+    assert isinstance(scheduler, LRScheduler)
 
 
 def test_cosine_annealing_with_warmup_accepts_schedule_target(optimizer):

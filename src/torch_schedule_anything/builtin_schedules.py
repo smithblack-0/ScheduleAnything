@@ -14,7 +14,13 @@ import math
 from typing import Optional
 
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import LambdaLR, _LRScheduler
+from torch.optim.lr_scheduler import LambdaLR
+
+# Backward compatibility: PyTorch renamed _LRScheduler to LRScheduler
+try:
+    from torch.optim.lr_scheduler import LRScheduler
+except ImportError:
+    from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 
 from .infrastructure import arbitrary_schedule_factory
 
@@ -31,7 +37,7 @@ def cosine_annealing_with_warmup(
     num_warmup_steps: int,
     num_training_steps: int,
     schedule_target: str = "lr",
-) -> _LRScheduler:
+) -> LRScheduler:
     """
     Cosine annealing with linear warmup.
 
@@ -76,7 +82,7 @@ def cosine_annealing_with_inverse_warmup(
     num_training_steps: int,
     warmup_multiplier: float = 20.0,
     schedule_target: str = "lr",
-) -> _LRScheduler:
+) -> LRScheduler:
     """
     Cosine annealing with inverse warmup (high to baseline).
 
@@ -133,7 +139,7 @@ def polynomial_schedule_with_warmup(
     num_training_steps: int,
     polynomial_exponent: float = 2.0,
     schedule_target: str = "lr",
-) -> _LRScheduler:
+) -> LRScheduler:
     """
     Polynomial decay with linear warmup.
 
@@ -186,7 +192,7 @@ def polynomial_schedule_with_inverse_warmup(
     polynomial_exponent: float = 2.0,
     warmup_multiplier: float = 20.0,
     schedule_target: str = "lr",
-) -> _LRScheduler:
+) -> LRScheduler:
     """
     Polynomial decay with inverse warmup.
 
@@ -239,7 +245,7 @@ def linear_schedule_with_warmup(
     num_warmup_steps: int,
     num_training_steps: int,
     schedule_target: str = "lr",
-) -> _LRScheduler:
+) -> LRScheduler:
     """
     Linear decay with warmup. Equivalent to polynomial_schedule_with_warmup with exponent=1.0.
 
@@ -277,7 +283,7 @@ def linear_schedule_with_inverse_warmup(
     num_training_steps: int,
     warmup_multiplier: float = 20.0,
     schedule_target: str = "lr",
-) -> _LRScheduler:
+) -> LRScheduler:
     """
     Linear decay with inverse warmup.
 
@@ -316,7 +322,7 @@ def quadratic_schedule_with_warmup(
     num_warmup_steps: int,
     num_training_steps: int,
     schedule_target: str = "lr",
-) -> _LRScheduler:
+) -> LRScheduler:
     """
     Quadratic decay with warmup. Equivalent to polynomial_schedule_with_warmup with exponent=2.0.
 
@@ -354,7 +360,7 @@ def quadratic_schedule_with_inverse_warmup(
     num_training_steps: int,
     warmup_multiplier: float = 20.0,
     schedule_target: str = "lr",
-) -> _LRScheduler:
+) -> LRScheduler:
     """
     Quadratic decay with inverse warmup.
 
@@ -393,7 +399,7 @@ def sqrt_schedule_with_warmup(
     num_warmup_steps: int,
     num_training_steps: int,
     schedule_target: str = "lr",
-) -> _LRScheduler:
+) -> LRScheduler:
     """
     Square root decay with warmup. Equivalent to polynomial_schedule_with_warmup with exponent=0.5.
 
@@ -431,7 +437,7 @@ def sqrt_schedule_with_inverse_warmup(
     num_training_steps: int,
     warmup_multiplier: float = 20.0,
     schedule_target: str = "lr",
-) -> _LRScheduler:
+) -> LRScheduler:
     """
     Square root decay with inverse warmup.
 
@@ -473,7 +479,7 @@ def constant_with_warmup(
     warmup_to_value: float,
     num_warmup_steps: int,
     schedule_target: str = "lr",
-) -> _LRScheduler:
+) -> LRScheduler:
     """
     Constant schedule with linear warmup.
 
@@ -513,7 +519,7 @@ def constant_with_inverse_warmup(
     num_warmup_steps: int,
     warmup_multiplier: float = 20.0,
     schedule_target: str = "lr",
-) -> _LRScheduler:
+) -> LRScheduler:
     """
     Constant schedule with inverse warmup.
 
@@ -552,7 +558,7 @@ def constant_schedule(
     optimizer: Optimizer,
     value: float,
     schedule_target: str = "lr",
-) -> _LRScheduler:
+) -> LRScheduler:
     """
     Pure constant schedule (no warmup).
 

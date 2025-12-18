@@ -18,8 +18,13 @@ from torch.optim.lr_scheduler import (
     CosineAnnealingLR,
     ExponentialLR,
     LambdaLR,
-    _LRScheduler,
 )
+
+# Backward compatibility: PyTorch renamed _LRScheduler to LRScheduler
+try:
+    from torch.optim.lr_scheduler import LRScheduler
+except ImportError:
+    from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 
 import src.torch_schedule_anything as sa
 
@@ -31,14 +36,14 @@ import src.torch_schedule_anything as sa
 
 def test_factory_returns_scheduler(optimizer):
     """
-    Contract: arbitrary_schedule_factory returns a PyTorch _LRScheduler instance.
+    Contract: arbitrary_schedule_factory returns a PyTorch LRScheduler instance.
     """
     scheduler = sa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: StepLR(opt, step_size=10),
         schedule_target="weight_decay",
     )
-    assert isinstance(scheduler, _LRScheduler)
+    assert isinstance(scheduler, LRScheduler)
 
 
 def test_factory_with_existing_parameter(optimizer):
@@ -148,19 +153,23 @@ def test_factory_with_exponential_lr(optimizer):
 def test_factory_with_lambda_lr(optimizer):
     """
     Contract: Compatible with PyTorch LambdaLR for custom curves.
-    Observable: Custom lambda function controls parameter.
+    Observable: Formula is initial_hyperparameter_value * lambda(t).
     """
+    base_wd = optimizer.param_groups[0]["weight_decay"]  # 0.01
+
     scheduler = sa.arbitrary_schedule_factory(
         optimizer=optimizer,
-        schedule_factory=lambda opt: LambdaLR(opt, lr_lambda=lambda epoch: 0.5),
+        schedule_factory=lambda opt: LambdaLR(opt, lr_lambda=lambda t: 0.5),
         schedule_target="weight_decay",
     )
 
-    initial_wd = optimizer.param_groups[0]["weight_decay"]
+    # Observable: After init, value = base_wd * lambda(0) = 0.01 * 0.5 = 0.005
+    assert abs(optimizer.param_groups[0]["weight_decay"] - base_wd * 0.5) < 1e-6
 
     scheduler.step()
-    expected_wd = initial_wd * 0.5
-    assert abs(optimizer.param_groups[0]["weight_decay"] - expected_wd) < 1e-6
+
+    # Observable: After step, value = base_wd * lambda(1) = 0.01 * 0.5 = 0.005 (constant lambda)
+    assert abs(optimizer.param_groups[0]["weight_decay"] - base_wd * 0.5) < 1e-6
 
 
 def test_factory_schedule_actually_updates_parameter(optimizer):
