@@ -541,3 +541,36 @@ def test_extend_optimizer_without_overwrite_preserves():
 
     # Observable: Value preserved
     assert optimizer.param_groups[0]["custom"] == 5.0
+
+
+def test_desync_detection_raises_error():
+    """
+    Contract: Desync detection catches when backend is modified directly.
+    Observable: RuntimeError raised when proxy and backend are out of sync.
+
+    This test verifies that the internal desync detection works by:
+    1. Creating a scheduler with proxy
+    2. Modifying the backend parameter directly (bypassing proxy)
+    3. Attempting to use the scheduler, which should detect desync
+    """
+    from src.torch_schedule_anything.arbitrary_schedules import ArbitraryScheduleAdapter
+
+    model = nn.Linear(10, 1)
+    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
+
+    # Create adapter (internal machinery)
+    adapter = ArbitraryScheduleAdapter(optimizer, "weight_decay")
+
+    # Create scheduler on the adapter
+    scheduler = LambdaLR(adapter, lambda epoch: 0.95 ** epoch)
+
+    # Step once to establish baseline
+    scheduler.step()
+
+    # BYPASS the proxy: Modify backend directly
+    # This creates a desync between proxy cache and backend
+    optimizer.param_groups[0]["weight_decay"] = 0.999
+
+    # Observable: Next step should detect desync and raise
+    with pytest.raises(RuntimeError, match="Proxy and backend have become desynced"):
+        scheduler.step()
