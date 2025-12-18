@@ -1,7 +1,8 @@
 """
 Black box API tests for built-in schedules.
 
-Tests all 13 built-in schedules match their documented mathematical formulas from builtin_schedules.md:
+Tests all 13 built-in schedules match their documented
+mathematical formulas from builtin_schedules.md:
 - Cosine schedules (2)
 - Polynomial schedules (8)
 - Constant schedules (3)
@@ -152,7 +153,8 @@ def test_cosine_annealing_with_inverse_warmup_formula(optimizer):
     Formula during annealing (t > L):
         λ(t) = A + (W - A) * cos((π/2) * (t - L) / (M - L))
 
-    Where: W=warmup_to_value, A=anneal_to_value, L=num_warmup_steps, M=num_training_steps, R=warmup_multiplier
+    Where: W=warmup_to_value, A=anneal_to_value, L=num_warmup_steps,
+           M=num_training_steps, R=warmup_multiplier
     """
     W, A, L, M, R = 1.0, 0.1, 100, 1000, 10.0
     initial_lr = 0.001
@@ -225,7 +227,8 @@ def test_polynomial_schedule_with_warmup_formula(optimizer):
     Formula during annealing (t > L):
         λ(t) = A + (W - A) * (1 - (t - L) / (M - L))^P
 
-    Where: W=warmup_to_value, A=anneal_to_value, L=num_warmup_steps, M=num_training_steps, P=polynomial_exponent
+    Where: W=warmup_to_value, A=anneal_to_value, L=num_warmup_steps,
+           M=num_training_steps, P=polynomial_exponent
     """
     W, A, L, M, P = 1.0, 0.1, 100, 1000, 3.0
     initial_lr = 0.001
@@ -610,7 +613,8 @@ def test_linear_schedule_with_inverse_warmup_formula(optimizer):
     Formula during annealing (t > L):
         λ(t) = A + (W - A) * (1 - (t - L) / (M - L))
 
-    Where: W=warmup_to_value, A=anneal_to_value, L=num_warmup_steps, M=num_training_steps, R=warmup_multiplier
+    Where: W=warmup_to_value, A=anneal_to_value, L=num_warmup_steps,
+           M=num_training_steps, R=warmup_multiplier
     """
     W, A, L, M, R = 1.0, 0.1, 100, 1000, 5.0
     initial_lr = 0.001
@@ -705,7 +709,8 @@ def test_quadratic_schedule_with_inverse_warmup_formula(optimizer):
     Formula during annealing (t > L):
         λ(t) = A + (W - A) * (1 - (t - L) / (M - L))^2
 
-    Where: W=warmup_to_value, A=anneal_to_value, L=num_warmup_steps, M=num_training_steps, R=warmup_multiplier
+    Where: W=warmup_to_value, A=anneal_to_value, L=num_warmup_steps,
+           M=num_training_steps, R=warmup_multiplier
     """
     W, A, L, M, R = 1.0, 0.1, 100, 1000, 5.0
     initial_lr = 0.001
@@ -800,7 +805,8 @@ def test_sqrt_schedule_with_inverse_warmup_formula(optimizer):
     Formula during annealing (t > L):
         λ(t) = A + (W - A) * (1 - (t - L) / (M - L))^0.5
 
-    Where: W=warmup_to_value, A=anneal_to_value, L=num_warmup_steps, M=num_training_steps, R=warmup_multiplier
+    Where: W=warmup_to_value, A=anneal_to_value, L=num_warmup_steps,
+           M=num_training_steps, R=warmup_multiplier
     """
     W, A, L, M, R = 1.0, 0.1, 100, 1000, 5.0
     initial_lr = 0.001
@@ -1016,49 +1022,6 @@ def test_constant_schedule_formula(optimizer):
 
 
 # =============================================================================
-# Boundary Value Tests
-# =============================================================================
-
-
-def test_warmup_boundary_values(optimizer):
-    """Contract: Boundary conditions match documented warmup_to_value and anneal_to_value."""
-    W, A, L, M = 1.0, 0.01, 100, 1000
-    initial_lr = 0.001
-
-    scheduler = sa.cosine_annealing_with_warmup(
-        optimizer,
-        warmup_to_value=W,
-        anneal_to_value=A,
-        num_warmup_steps=L,
-        num_training_steps=M,
-    )
-
-    # At end of warmup, should be at warmup_to_value
-    scheduler.step(L)
-    expected = initial_lr * W
-    assert_close(get_scheduled_value(optimizer), expected)
-
-
-def test_inverse_warmup_boundary_values(optimizer):
-    """Contract: Inverse warmup starts at warmup_to_value * warmup_multiplier."""
-    W, R = 1.0, 20.0
-    initial_lr = 0.001
-
-    scheduler = sa.cosine_annealing_with_inverse_warmup(
-        optimizer,
-        warmup_to_value=W,
-        anneal_to_value=0.01,
-        num_warmup_steps=100,
-        num_training_steps=1000,
-        warmup_multiplier=R,
-    )
-
-    # At t=0, should be at W * R
-    scheduler.step(0)
-    expected = initial_lr * W * R
-
-
-# =============================================================================
 # Integration: All Schedules Work with Custom Parameters
 # =============================================================================
 
@@ -1086,7 +1049,7 @@ def test_all_schedules_work_with_custom_parameters(optimizer, schedule_func):
 
     scheduler = schedule_func(optimizer)
 
-    initial_value = get_scheduled_value(optimizer, "custom")
+    get_scheduled_value(optimizer, "custom")
     scheduler.step()
 
     # Observable: Custom parameter is being scheduled

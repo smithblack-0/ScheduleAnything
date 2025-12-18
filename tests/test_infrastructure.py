@@ -75,7 +75,7 @@ def test_factory_creates_new_parameter(optimizer):
     # Verify parameter doesn't exist initially
     assert "gradient_clip_threshold" not in optimizer.param_groups[0]
 
-    scheduler = sa.arbitrary_schedule_factory(
+    sa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: StepLR(opt, step_size=10),
         default_value=10.0,
@@ -238,7 +238,7 @@ def test_factory_throws_invalid_target(optimizer):
     """Test when trying to construct on an invalid target we throw"""
 
     with pytest.raises(KeyError):
-        scheduler = sa.arbitrary_schedule_factory(
+        sa.arbitrary_schedule_factory(
             optimizer=optimizer,
             schedule_factory=lambda opt: StepLR(opt, step_size=1, gamma=0.5),
             schedule_target="burble",

@@ -1,7 +1,21 @@
 # Changelog
 
+# 
+
+## 0.7.3
+
+- Remove unused variables in test_integration
+
+## 0.7.2
+
+- Lots of corrections in builtin_schedules, primarily shortening
+  test docstrings to be in spec
+- ACTUALLY removed the redundant boundary tests from 0.6.3
+- test_builtin is now in style.
+
 ## 0.7.1
 
+- Fix one issue in test_adapter involving a contract spec being too long
 
 ## 0.7.0
 

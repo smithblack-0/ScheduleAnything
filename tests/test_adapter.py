@@ -62,8 +62,10 @@ def test_adapter_provides_schedule_target_field(optimizer):
 def test_namespace_routing_isolates_scheduler_state(optimizer):
     """
     Contract: Scheduler internal state routes to schedule_namespaces, not main param_group.
-    Why: Prevents multiple schedules from clobbering each other's internal state (e.g., 'initial_lr').
-    How: Create adapter+scheduler, verify 'initial_lr' in schedule_namespaces[weight_decay], NOT main dict.
+    Why: Prevents multiple schedules from clobbering each other's internal state
+         (e.g., 'initial_lr').
+    How: Create adapter+scheduler, verify 'initial_lr' in schedule_namespaces[weight_decay],
+         NOT main dict.
     """
     # Create adapter - this sets up the namespace routing
     adapter = ArbitraryScheduleAdapter(optimizer, "weight_decay")
