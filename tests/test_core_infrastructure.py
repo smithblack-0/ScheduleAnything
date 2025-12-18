@@ -24,21 +24,12 @@ import src.torch_schedule_anything as sa
 # =============================================================================
 
 
-def test_schedule_namespaces_routing_contract():
+def test_schedule_namespaces_routing_contract(optimizer):
     """
-    Contract: schedule_namespaces is part of the black box contract.
-    Observable: Non-'lr', non-existing keys route to schedule_namespaces, not main dict.
-
-    When a schedule sets a key that:
-    - Is NOT 'lr'
-    - Did NOT exist in original param_group
-
-    Then it MUST go to schedule_namespaces[schedule_target][key], not the main dict.
-    This prevents pollution and collision.
+    Contract: Scheduler internal state routes to schedule_namespaces, not main param_group.
+    Why: Prevents multiple schedules from clobbering each other's internal state (e.g., 'initial_lr').
+    How: Verify 'initial_lr' exists in schedule_namespaces[weight_decay], NOT in main dict keys.
     """
-    model = nn.Linear(10, 1)
-    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-
     # Create scheduler - StepLR will set 'initial_lr' internally
     scheduler = sa.arbitrary_schedule_factory(
         optimizer,
@@ -49,8 +40,6 @@ def test_schedule_namespaces_routing_contract():
     # Step the scheduler (this causes StepLR to set 'initial_lr')
     scheduler.step()
 
-    # Contract: 'initial_lr' should NOT pollute the main param_group dict
-    # It should be in schedule_namespaces instead
     param_group = optimizer.param_groups[0]
 
     # Observable: schedule_namespaces exists and contains the schedule's namespace
@@ -58,7 +47,6 @@ def test_schedule_namespaces_routing_contract():
     assert "weight_decay" in param_group["schedule_namespaces"]
 
     # Observable: 'initial_lr' is routed to namespace, not main dict keys
-    # Main dict should only have original keys plus schedule_namespaces
     main_keys = set(param_group.keys()) - {"schedule_namespaces"}
     assert "initial_lr" not in main_keys  # Not polluting main dict
 
@@ -66,32 +54,16 @@ def test_schedule_namespaces_routing_contract():
     assert "initial_lr" in param_group["schedule_namespaces"]["weight_decay"]
 
 
-def test_multiple_schedules_maintain_separate_state():
+def test_multiple_schedules_maintain_separate_state(optimizer, setup_schedule):
     """
-    Contract: Multiple schedules can coexist without state collision.
-    Observable: Each schedule maintains its own state independently.
-
-    This tests the namespace collision fix - each schedule's internal state
-    (like initial_lr) is stored separately, not clobbering each other.
+    Contract: Multiple schedules coexist without state collision.
+    Why: Each schedule sets internal state (e.g., 'initial_lr') - must not clobber each other.
+    How: Run two schedules for 20 steps, verify both parameters evolved independently.
     """
-    model = nn.Linear(10, 1)
-    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-
     # Create two schedules on different parameters
-    wd_scheduler = sa.arbitrary_schedule_factory(
-        optimizer,
-        lambda opt: StepLR(opt, step_size=10, gamma=0.5),
-        schedule_target="weight_decay",
-    )
+    wd_scheduler = setup_schedule(optimizer, "weight_decay", StepLR, step_size=10, gamma=0.5)
+    mom_scheduler = setup_schedule(optimizer, "momentum", StepLR, default_value=0.9, step_size=5, gamma=0.8)
 
-    sa.extend_optimizer(optimizer, "momentum", default_value=0.9)
-    mom_scheduler = sa.arbitrary_schedule_factory(
-        optimizer,
-        lambda opt: StepLR(opt, step_size=5, gamma=0.8),
-        schedule_target="momentum",
-    )
-
-    # Observable: Both schedulers work without errors
     sync = sa.SynchronousSchedule([wd_scheduler, mom_scheduler])
 
     # Step 20 times
@@ -101,30 +73,19 @@ def test_multiple_schedules_maintain_separate_state():
     # Observable: Each parameter evolved independently per its schedule
     # weight_decay: step_size=10, so changed at step 10, 20
     # momentum: step_size=5, so changed at steps 5, 10, 15, 20
-
     final_wd = optimizer.param_groups[0]["weight_decay"]
     final_mom = optimizer.param_groups[0]["momentum"]
 
-    # Both parameters changed (not stuck at initial values)
     assert final_wd != 0.01  # Changed from initial
     assert final_mom != 0.9  # Changed from initial
 
-    # Observable: No errors occurred during 20 steps
-    assert True
 
-
-def test_three_schedules_coexist():
+def test_three_schedules_coexist(optimizer, setup_schedule):
     """
-    Contract: System supports many simultaneous schedules.
-    Observable: Three+ schedules work together without conflicts.
+    Contract: System supports multiple simultaneous schedules without conflicts.
+    Why: Ensures namespace isolation scales beyond two schedules.
+    How: Run three schedules together for 10 steps, verify all parameters evolved.
     """
-    model = nn.Linear(10, 1)
-    optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
-
-    # Add custom parameters
-    sa.extend_optimizer(optimizer, "momentum", default_value=0.9)
-    sa.extend_optimizer(optimizer, "custom_param", default_value=5.0)
-
     # Three different schedules
     lr_sched = sa.arbitrary_schedule_factory(
         optimizer,
