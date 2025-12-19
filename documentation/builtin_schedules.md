@@ -10,7 +10,7 @@ This library provides curve primitives for scheduling any optimizer hyperparamet
 The term 'Schedule' as defined in this library is the same as in canonical PyTorch: A multiplier that is applied to an initial hyperparameter. PyTorch schedulers work by computing a **multiplier** λ(t) that gets applied to initial parameter values:
 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 To maintain maximal compatibility, we adopt PyTorch's conventions.
@@ -115,7 +115,7 @@ cosine_annealing_with_warmup(
 
 **Formula:** 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 **where:**
@@ -165,7 +165,7 @@ cosine_annealing_with_inverse_warmup(
 
 **Formula:** 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 **where:**
@@ -219,7 +219,7 @@ polynomial_schedule_with_warmup(
 
 **Formula:** 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 **where:**
@@ -259,7 +259,7 @@ polynomial_schedule_with_inverse_warmup(
 
 **Formula:** 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 **where:**
@@ -295,7 +295,7 @@ linear_schedule_with_warmup(
 
 **Formula:** 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 **where:**
@@ -333,7 +333,7 @@ linear_schedule_with_inverse_warmup(
 
 **Formula:** 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 **where:**
@@ -369,7 +369,7 @@ quadratic_schedule_with_warmup(
 
 **Formula:** 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 **where:**
@@ -407,7 +407,7 @@ quadratic_schedule_with_inverse_warmup(
 
 **Formula:** 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 **where:**
@@ -443,7 +443,7 @@ sqrt_schedule_with_warmup(
 
 **Formula:** 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 **where:**
@@ -481,7 +481,7 @@ sqrt_schedule_with_inverse_warmup(
 
 **Formula:** 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 **where:**
@@ -515,7 +515,7 @@ constant_with_warmup(
 
 **Formula:** 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 **where:**
@@ -549,7 +549,7 @@ constant_with_inverse_warmup(
 
 **Formula:** 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 **where:**
@@ -579,7 +579,7 @@ constant_schedule(
 
 **Formula:** 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 **where:**

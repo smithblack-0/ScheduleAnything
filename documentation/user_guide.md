@@ -50,7 +50,7 @@ All examples follow this convention.
 The term 'Schedule' as defined in this library is the same as in Canonical PyTorch: A multiplier that is applied to an initial hyperparameter. PyTorch schedulers work by computing a **multiplier** λ(t) that gets applied to initial parameter values:
 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 To maintain maximal compatibility, we adopt PyTorch's conventions.
