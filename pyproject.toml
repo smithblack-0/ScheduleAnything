@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "torch-schedule-anything"
-version = "1.0.0"
+version = "1.0.1"
 description = "Schedule any optimizer hyperparameter, not just learning rate"
 readme = "README.md"
 license = {text = "MIT"}
