@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.2
+
+- Fixed LaTeX underscore rendering for GitHub in documentation
+- Changed `\text{initial\_hyperparameter\_value}` to backtick-wrapped `\text{initial_hyperparameter_value}`
+- GitHub doesn't render underscores correctly inside $$ math blocks
+- Fixed in user_guide.md (1 instance) and builtin_schedules.md (14 instances)
+
 ## 1.0.1 
 
 - Minor format fix in readme
