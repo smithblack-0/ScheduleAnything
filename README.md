@@ -200,8 +200,8 @@ This demonstrates the full power: custom parameters created via factory, built-i
 
 - **[Examples & Tutorials](documentation/examples_and_tutorials.md)** - Hands-on Colab notebooks with step-by-step tutorials
 - **[User Guide](documentation/user_guide.md)** - Complete usage guide with examples and best practices
-- **[Built-In Schedules](documentation/builtin_schedules.md)** - API reference with mathematical formulas for all schedules
-- **[Infrastructure](documentation/infrastructure.md)** - Complete API references for utilities and advanced usage
+- **[Built-In Schedules](documentation/builtin_schedules.md)** - API reference for all builtin schedules
+- **[Infrastructure](documentation/infrastructure.md)** - API reference for utilities and arbitrary schedule factories
 
 
 ## License

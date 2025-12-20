@@ -48,8 +48,8 @@ Check back weekly for new examples!
 ## Navigation
 
 - [User Guide](user_guide.md) - Complete usage guide and concepts
-- [Built-In Schedules](builtin_schedules.md) - API reference for all built-in schedules
-- [Infrastructure API](infrastructure.md) - Low-level infrastructure documentation
+- [Built-In Schedules](builtin_schedules.md) - API reference for all builtin schedules
+- [Infrastructure API](infrastructure.md) - API reference for utilities and arbitrary schedule factories
 - [README](../README.md) - Installation and quick start
 
 ---

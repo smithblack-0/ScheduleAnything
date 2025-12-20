@@ -26,7 +26,7 @@ When you specify `warmup_to_value=1.0` and `anneal_to_value=0.1`, you're definin
 
 - **[Examples & Tutorials](examples_and_tutorials.md)** - Hands-on Colab notebooks with step-by-step tutorials
 - **[User Guide](user_guide.md)** - Complete usage guide and concepts
-- **[Infrastructure](infrastructure.md)** - Low-level infrastructure and utilities
+- **[Infrastructure](infrastructure.md)** - API reference for utilities and arbitrary schedule factories
 - **[README](../README.md)** - Installation and quick start
 
 

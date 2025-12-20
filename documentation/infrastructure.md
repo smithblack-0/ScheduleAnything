@@ -15,7 +15,7 @@ Most users will primarily use `SynchronousSchedule` for coordination and occasio
 
 - **[Examples & Tutorials](examples_and_tutorials.md)** - Hands-on Colab notebooks with step-by-step tutorials
 - **[User Guide](user_guide.md)** - Complete usage guide and concepts
-- **[Built-In Schedules](builtin_schedules.md)** - API reference with mathematical formulas
+- **[Built-In Schedules](builtin_schedules.md)** - API reference for all builtin schedules
 - **[README](../README.md)** - Installation and quick start
 ---
 
@@ -350,5 +350,5 @@ def apply_conditional_regularization(optimizer):
 
 - **[Examples & Tutorials](examples_and_tutorials.md)** - Hands-on Colab notebooks with step-by-step tutorials
 - **[User Guide](user_guide.md)** - Complete usage guide and concepts
-- **[Built-In Schedules](builtin_schedules.md)** - API reference with mathematical formulas
+- **[Built-In Schedules](builtin_schedules.md)** - API reference for all builtin schedules
 - **[README](../README.md)** - Installation and quick start
