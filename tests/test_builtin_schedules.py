@@ -21,7 +21,7 @@ try:
 except ImportError:
     from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 
-import src.torch_schedule_anything as sa
+import src.torch_schedule_anything as tsa
 
 # =============================================================================
 # Helper Functions
@@ -45,7 +45,7 @@ def assert_close(actual, expected, rtol=1e-5):
 
 def test_cosine_annealing_with_warmup_returns_scheduler(optimizer):
     """Contract: Returns LRScheduler instance."""
-    scheduler = sa.cosine_annealing_with_warmup(
+    scheduler = tsa.cosine_annealing_with_warmup(
         optimizer,
         warmup_to_value=1.0,
         anneal_to_value=0.1,
@@ -57,7 +57,7 @@ def test_cosine_annealing_with_warmup_returns_scheduler(optimizer):
 
 def test_cosine_annealing_with_warmup_accepts_schedule_target(optimizer):
     """Contract: Works with schedule_target parameter."""
-    scheduler = sa.cosine_annealing_with_warmup(
+    scheduler = tsa.cosine_annealing_with_warmup(
         optimizer,
         warmup_to_value=1.0,
         anneal_to_value=0.1,
@@ -88,7 +88,7 @@ def test_cosine_annealing_with_warmup_formula(optimizer):
     W, A, L, M = 1.0, 0.1, 100, 1000
     initial_lr = 0.001
 
-    scheduler = sa.cosine_annealing_with_warmup(
+    scheduler = tsa.cosine_annealing_with_warmup(
         optimizer,
         warmup_to_value=W,
         anneal_to_value=A,
@@ -159,7 +159,7 @@ def test_cosine_annealing_with_inverse_warmup_formula(optimizer):
     W, A, L, M, R = 1.0, 0.1, 100, 1000, 10.0
     initial_lr = 0.001
 
-    scheduler = sa.cosine_annealing_with_inverse_warmup(
+    scheduler = tsa.cosine_annealing_with_inverse_warmup(
         optimizer,
         warmup_to_value=W,
         anneal_to_value=A,
@@ -233,7 +233,7 @@ def test_polynomial_schedule_with_warmup_formula(optimizer):
     W, A, L, M, P = 1.0, 0.1, 100, 1000, 3.0
     initial_lr = 0.001
 
-    scheduler = sa.polynomial_schedule_with_warmup(
+    scheduler = tsa.polynomial_schedule_with_warmup(
         optimizer,
         warmup_to_value=W,
         anneal_to_value=A,
@@ -299,7 +299,7 @@ def test_linear_schedule_with_warmup_formula(optimizer):
     W, A, L, M = 1.0, 0.1, 100, 1000
     initial_lr = 0.001
 
-    scheduler = sa.linear_schedule_with_warmup(
+    scheduler = tsa.linear_schedule_with_warmup(
         optimizer,
         warmup_to_value=W,
         anneal_to_value=A,
@@ -365,7 +365,7 @@ def test_quadratic_schedule_with_warmup_formula(optimizer):
     initial_lr = 0.001
 
     # Quadratic schedule under test
-    scheduler = sa.quadratic_schedule_with_warmup(
+    scheduler = tsa.quadratic_schedule_with_warmup(
         optimizer,
         warmup_to_value=W,
         anneal_to_value=A,
@@ -375,7 +375,7 @@ def test_quadratic_schedule_with_warmup_formula(optimizer):
 
     # Contract equivalence: quadratic == polynomial(exponent=2)
     optimizer_poly = copy.deepcopy(optimizer)
-    poly_scheduler = sa.polynomial_schedule_with_warmup(
+    poly_scheduler = tsa.polynomial_schedule_with_warmup(
         optimizer_poly,
         warmup_to_value=W,
         anneal_to_value=A,
@@ -456,7 +456,7 @@ def test_sqrt_schedule_with_warmup_formula(optimizer):
     initial_lr = 0.001
 
     # Sqrt schedule under test
-    scheduler = sa.sqrt_schedule_with_warmup(
+    scheduler = tsa.sqrt_schedule_with_warmup(
         optimizer,
         warmup_to_value=W,
         anneal_to_value=A,
@@ -466,7 +466,7 @@ def test_sqrt_schedule_with_warmup_formula(optimizer):
 
     # Contract equivalence: sqrt == polynomial(exponent=0.5)
     optimizer_poly = copy.deepcopy(optimizer)
-    poly_scheduler = sa.polynomial_schedule_with_warmup(
+    poly_scheduler = tsa.polynomial_schedule_with_warmup(
         optimizer_poly,
         warmup_to_value=W,
         anneal_to_value=A,
@@ -549,7 +549,7 @@ def test_polynomial_schedule_with_inverse_warmup_formula(optimizer):
     W, A, L, M, P, R = 1.0, 0.1, 100, 1000, 2.0, 5.0
     initial_lr = 0.001
 
-    scheduler = sa.polynomial_schedule_with_inverse_warmup(
+    scheduler = tsa.polynomial_schedule_with_inverse_warmup(
         optimizer,
         warmup_to_value=W,
         anneal_to_value=A,
@@ -620,7 +620,7 @@ def test_linear_schedule_with_inverse_warmup_formula(optimizer):
     initial_lr = 0.001
 
     # Linear inverse-warmup schedule under test
-    scheduler = sa.linear_schedule_with_inverse_warmup(
+    scheduler = tsa.linear_schedule_with_inverse_warmup(
         optimizer,
         warmup_to_value=W,
         anneal_to_value=A,
@@ -631,7 +631,7 @@ def test_linear_schedule_with_inverse_warmup_formula(optimizer):
 
     # Contract equivalence: linear(inverse warmup) == polynomial(inverse warmup, exponent=1.0)
     optimizer_poly = copy.deepcopy(optimizer)
-    poly_scheduler = sa.polynomial_schedule_with_inverse_warmup(
+    poly_scheduler = tsa.polynomial_schedule_with_inverse_warmup(
         optimizer_poly,
         warmup_to_value=W,
         anneal_to_value=A,
@@ -716,7 +716,7 @@ def test_quadratic_schedule_with_inverse_warmup_formula(optimizer):
     initial_lr = 0.001
 
     # Quadratic inverse-warmup schedule under test
-    scheduler = sa.quadratic_schedule_with_inverse_warmup(
+    scheduler = tsa.quadratic_schedule_with_inverse_warmup(
         optimizer,
         warmup_to_value=W,
         anneal_to_value=A,
@@ -727,7 +727,7 @@ def test_quadratic_schedule_with_inverse_warmup_formula(optimizer):
 
     # Contract equivalence: quadratic(inverse warmup) == polynomial(inverse warmup, exponent=2.0)
     optimizer_poly = copy.deepcopy(optimizer)
-    poly_scheduler = sa.polynomial_schedule_with_inverse_warmup(
+    poly_scheduler = tsa.polynomial_schedule_with_inverse_warmup(
         optimizer_poly,
         warmup_to_value=W,
         anneal_to_value=A,
@@ -812,7 +812,7 @@ def test_sqrt_schedule_with_inverse_warmup_formula(optimizer):
     initial_lr = 0.001
 
     # Sqrt inverse-warmup schedule under test
-    scheduler = sa.sqrt_schedule_with_inverse_warmup(
+    scheduler = tsa.sqrt_schedule_with_inverse_warmup(
         optimizer,
         warmup_to_value=W,
         anneal_to_value=A,
@@ -823,7 +823,7 @@ def test_sqrt_schedule_with_inverse_warmup_formula(optimizer):
 
     # Contract equivalence: sqrt(inverse warmup) == polynomial(inverse warmup, exponent=0.5)
     optimizer_poly = copy.deepcopy(optimizer)
-    poly_scheduler = sa.polynomial_schedule_with_inverse_warmup(
+    poly_scheduler = tsa.polynomial_schedule_with_inverse_warmup(
         optimizer_poly,
         warmup_to_value=W,
         anneal_to_value=A,
@@ -909,7 +909,7 @@ def test_constant_with_warmup_formula(optimizer):
     W, L = 1.0, 100
     initial_lr = 0.001
 
-    scheduler = sa.constant_with_warmup(
+    scheduler = tsa.constant_with_warmup(
         optimizer,
         warmup_to_value=W,
         num_warmup_steps=L,
@@ -955,7 +955,7 @@ def test_constant_with_inverse_warmup_formula(optimizer):
     W, L, R = 1.0, 100, 5.0
     initial_lr = 0.001
 
-    scheduler = sa.constant_with_inverse_warmup(
+    scheduler = tsa.constant_with_inverse_warmup(
         optimizer,
         warmup_to_value=W,
         num_warmup_steps=L,
@@ -1002,7 +1002,7 @@ def test_constant_schedule_formula(optimizer):
     V = 0.5
     initial_lr = 0.001
 
-    scheduler = sa.constant_schedule(
+    scheduler = tsa.constant_schedule(
         optimizer,
         value=V,
     )
@@ -1029,23 +1029,23 @@ def test_constant_schedule_formula(optimizer):
 @pytest.mark.parametrize(
     "schedule_func",
     [
-        lambda opt: sa.cosine_annealing_with_warmup(
+        lambda opt: tsa.cosine_annealing_with_warmup(
             opt, 1.0, 0.1, 10, 100, schedule_target="custom"
         ),
-        lambda opt: sa.linear_schedule_with_warmup(
+        lambda opt: tsa.linear_schedule_with_warmup(
             opt, 1.0, 0.1, 10, 100, schedule_target="custom"
         ),
-        lambda opt: sa.quadratic_schedule_with_warmup(
+        lambda opt: tsa.quadratic_schedule_with_warmup(
             opt, 1.0, 0.1, 10, 100, schedule_target="custom"
         ),
-        lambda opt: sa.sqrt_schedule_with_warmup(opt, 1.0, 0.1, 10, 100, schedule_target="custom"),
-        lambda opt: sa.constant_with_warmup(opt, 1.0, 10, schedule_target="custom"),
-        lambda opt: sa.constant_schedule(opt, 0.5, schedule_target="custom"),
+        lambda opt: tsa.sqrt_schedule_with_warmup(opt, 1.0, 0.1, 10, 100, schedule_target="custom"),
+        lambda opt: tsa.constant_with_warmup(opt, 1.0, 10, schedule_target="custom"),
+        lambda opt: tsa.constant_schedule(opt, 0.5, schedule_target="custom"),
     ],
 )
 def test_all_schedules_work_with_custom_parameters(optimizer, schedule_func):
     """Contract: All built-in schedules work with custom schedule_target."""
-    sa.extend_optimizer(optimizer, "custom", default_value=1.0)
+    tsa.extend_optimizer(optimizer, "custom", default_value=1.0)
 
     scheduler = schedule_func(optimizer)
 

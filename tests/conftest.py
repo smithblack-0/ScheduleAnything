@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 from torch.optim import SGD, AdamW
 
-import src.torch_schedule_anything as sa
+import src.torch_schedule_anything as tsa
 
 
 @pytest.fixture
@@ -76,8 +76,8 @@ def setup_schedule():
             Configured scheduler instance
         """
         if default_value is not None:
-            sa.extend_optimizer(optimizer, param_name, default_value=default_value)
-        return sa.arbitrary_schedule_factory(
+            tsa.extend_optimizer(optimizer, param_name, default_value=default_value)
+        return tsa.arbitrary_schedule_factory(
             optimizer,
             lambda opt: scheduler_class(opt, **scheduler_kwargs),
             schedule_target=param_name,

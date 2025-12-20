@@ -16,7 +16,7 @@ import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR, ExponentialLR, LinearLR, StepLR
 
-import src.torch_schedule_anything as sa
+import src.torch_schedule_anything as tsa
 
 # =============================================================================
 # Constructor & Properties Tests
@@ -29,16 +29,16 @@ def test_synchronous_accepts_scheduler_list(optimizer):
     Observable: Constructs successfully with multiple schedulers.
     """
     # Add momentum parameter (not present in AdamW by default)
-    sa.extend_optimizer(optimizer, "momentum", default_value=0.9)
+    tsa.extend_optimizer(optimizer, "momentum", default_value=0.9)
 
-    sched1 = sa.arbitrary_schedule_factory(
+    sched1 = tsa.arbitrary_schedule_factory(
         optimizer, lambda opt: StepLR(opt, step_size=10), schedule_target="weight_decay"
     )
-    sched2 = sa.arbitrary_schedule_factory(
+    sched2 = tsa.arbitrary_schedule_factory(
         optimizer, lambda opt: ExponentialLR(opt, gamma=0.9), schedule_target="momentum"
     )
 
-    sync = sa.SynchronousSchedule([sched1, sched2])
+    sync = tsa.SynchronousSchedule([sched1, sched2])
 
     # Observable: Constructed successfully
     assert sync is not None
@@ -50,19 +50,19 @@ def test_schedule_names_property(optimizer):
     Observable: Names match schedule_target values.
     """
     # Add momentum parameter (not present in AdamW by default)
-    sa.extend_optimizer(optimizer, "momentum", default_value=0.9)
+    tsa.extend_optimizer(optimizer, "momentum", default_value=0.9)
 
-    sched1 = sa.arbitrary_schedule_factory(
+    sched1 = tsa.arbitrary_schedule_factory(
         optimizer, lambda opt: StepLR(opt, step_size=10), schedule_target="weight_decay"
     )
-    sched2 = sa.arbitrary_schedule_factory(
+    sched2 = tsa.arbitrary_schedule_factory(
         optimizer, lambda opt: StepLR(opt, step_size=10), schedule_target="momentum"
     )
-    sched3 = sa.arbitrary_schedule_factory(
+    sched3 = tsa.arbitrary_schedule_factory(
         optimizer, lambda opt: StepLR(opt, step_size=10), schedule_target="lr"
     )
 
-    sync = sa.SynchronousSchedule([sched1, sched2, sched3])
+    sync = tsa.SynchronousSchedule([sched1, sched2, sched3])
 
     # Observable: schedule_names contains expected names
     names = sync.schedule_names
@@ -80,7 +80,7 @@ def test_schedule_names_lr_for_standard_pytorch(optimizer):
     # Standard PyTorch scheduler (not wrapped by factory)
     raw_scheduler = StepLR(optimizer, step_size=10)
 
-    sync = sa.SynchronousSchedule([raw_scheduler])
+    sync = tsa.SynchronousSchedule([raw_scheduler])
 
     # Observable: Name is 'lr'
     assert "lr" in sync.schedule_names
@@ -99,7 +99,7 @@ def test_synchronous_rejects_duplicate_lr_schedules(optimizer):
 
     # Observable: Raises error about duplicate 'lr'
     with pytest.raises(RuntimeError, match="lr"):
-        sa.SynchronousSchedule([sched1, sched2])
+        tsa.SynchronousSchedule([sched1, sched2])
 
 
 # =============================================================================
@@ -113,21 +113,21 @@ def test_step_updates_all_schedulers(optimizer):
     Observable: All scheduled parameters change after sync.step().
     """
     # Add parameters for scheduling
-    sa.extend_optimizer(optimizer, "custom_param_1", default_value=10.0)
-    sa.extend_optimizer(optimizer, "custom_param_2", default_value=20.0)
+    tsa.extend_optimizer(optimizer, "custom_param_1", default_value=10.0)
+    tsa.extend_optimizer(optimizer, "custom_param_2", default_value=20.0)
 
-    sched1 = sa.arbitrary_schedule_factory(
+    sched1 = tsa.arbitrary_schedule_factory(
         optimizer,
         lambda opt: StepLR(opt, step_size=1, gamma=0.5),
         schedule_target="custom_param_1",
     )
-    sched2 = sa.arbitrary_schedule_factory(
+    sched2 = tsa.arbitrary_schedule_factory(
         optimizer,
         lambda opt: StepLR(opt, step_size=1, gamma=0.8),
         schedule_target="custom_param_2",
     )
 
-    sync = sa.SynchronousSchedule([sched1, sched2])
+    sync = tsa.SynchronousSchedule([sched1, sched2])
 
     initial_val1 = optimizer.param_groups[0]["custom_param_1"]
     initial_val2 = optimizer.param_groups[0]["custom_param_2"]
@@ -150,13 +150,13 @@ def test_get_last_schedule_returns_correct_values(optimizer):
     Contract: get_last_schedule returns actual current values.
     Observable: Returned values match optimizer param_groups.
     """
-    sched = sa.arbitrary_schedule_factory(
+    sched = tsa.arbitrary_schedule_factory(
         optimizer,
         lambda opt: StepLR(opt, step_size=1, gamma=0.5),
         schedule_target="weight_decay",
     )
 
-    sync = sa.SynchronousSchedule([sched])
+    sync = tsa.SynchronousSchedule([sched])
 
     # Step multiple times
     for _ in range(3):
@@ -176,11 +176,11 @@ def test_get_last_schedule_returns_list_per_param_group(optimizer_with_multiple_
     """
     opt = optimizer_with_multiple_param_groups
 
-    sched = sa.arbitrary_schedule_factory(
+    sched = tsa.arbitrary_schedule_factory(
         opt, lambda o: StepLR(o, step_size=10), schedule_target="weight_decay"
     )
 
-    sync = sa.SynchronousSchedule([sched])
+    sync = tsa.SynchronousSchedule([sched])
     sync.step()
 
     last_values = sync.get_last_schedule("weight_decay")
@@ -196,11 +196,11 @@ def test_get_last_lr_convenience_method(optimizer):
     Contract: get_last_lr() is convenience for get_last_schedule('lr').
     Observable: Both methods return same values.
     """
-    sched = sa.arbitrary_schedule_factory(
+    sched = tsa.arbitrary_schedule_factory(
         optimizer, lambda opt: StepLR(opt, step_size=1, gamma=0.9), schedule_target="lr"
     )
 
-    sync = sa.SynchronousSchedule([sched])
+    sync = tsa.SynchronousSchedule([sched])
     sync.step()
 
     # Observable: Both methods return same values
@@ -215,11 +215,11 @@ def test_get_last_schedule_with_invalid_name(optimizer):
     Contract: Validates schedule name exists.
     Observable: Raises error for non-existent schedule.
     """
-    sched = sa.arbitrary_schedule_factory(
+    sched = tsa.arbitrary_schedule_factory(
         optimizer, lambda opt: StepLR(opt, step_size=10), schedule_target="weight_decay"
     )
 
-    sync = sa.SynchronousSchedule([sched])
+    sync = tsa.SynchronousSchedule([sched])
 
     # Observable: Error for invalid name
     with pytest.raises((KeyError, ValueError)):
@@ -236,11 +236,11 @@ def test_state_dict_returns_dict(optimizer):
     Contract: state_dict() returns dictionary.
     Observable: Return type is dict.
     """
-    sched = sa.arbitrary_schedule_factory(
+    sched = tsa.arbitrary_schedule_factory(
         optimizer, lambda opt: StepLR(opt, step_size=10), schedule_target="weight_decay"
     )
 
-    sync = sa.SynchronousSchedule([sched])
+    sync = tsa.SynchronousSchedule([sched])
 
     state = sync.state_dict()
 
@@ -257,13 +257,13 @@ def test_load_state_dict_restores_state(optimizer):
     and doing it again produce the same schedule?
     """
     # Create scheduler with known behavior (StepLR)
-    sched = sa.arbitrary_schedule_factory(
+    sched = tsa.arbitrary_schedule_factory(
         optimizer,
         lambda opt: LinearLR(opt, 1.0, 0.0, total_iters=200),
         schedule_target="weight_decay",
     )
 
-    sync = sa.SynchronousSchedule([sched])
+    sync = tsa.SynchronousSchedule([sched])
 
     # Save checkpoint
     checkpoint = {"optimizer": optimizer.state_dict(), "scheduler": sync.state_dict()}
@@ -289,13 +289,13 @@ def test_state_dict_roundtrip(optimizer):
     Contract: Roundtrip serialization is stable.
     Observable: save → load → save produces equivalent behavior.
     """
-    sched = sa.arbitrary_schedule_factory(
+    sched = tsa.arbitrary_schedule_factory(
         optimizer,
         lambda opt: ExponentialLR(opt, gamma=0.95),
         schedule_target="weight_decay",
     )
 
-    sync = sa.SynchronousSchedule([sched])
+    sync = tsa.SynchronousSchedule([sched])
 
     # Step to some point
     for _ in range(50):
@@ -328,20 +328,20 @@ def test_state_dict_with_multiple_schedules(optimizer):
     """
     import json
 
-    sa.extend_optimizer(optimizer, "custom_param", default_value=5.0)
+    tsa.extend_optimizer(optimizer, "custom_param", default_value=5.0)
 
-    sched1 = sa.arbitrary_schedule_factory(
+    sched1 = tsa.arbitrary_schedule_factory(
         optimizer,
         lambda opt: StepLR(opt, step_size=10, gamma=0.5),
         schedule_target="weight_decay",
     )
-    sched2 = sa.arbitrary_schedule_factory(
+    sched2 = tsa.arbitrary_schedule_factory(
         optimizer,
         lambda opt: ExponentialLR(opt, gamma=0.9),
         schedule_target="custom_param",
     )
 
-    sync = sa.SynchronousSchedule([sched1, sched2])
+    sync = tsa.SynchronousSchedule([sched1, sched2])
 
     # Step to 5
     for _ in range(5):
@@ -357,14 +357,14 @@ def test_state_dict_with_multiple_schedules(optimizer):
     # Run 1: Load and step 10 times
     model1 = nn.Linear(10, 1)
     opt1 = AdamW(model1.parameters(), lr=0.001, weight_decay=0.01)
-    sa.extend_optimizer(opt1, "custom_param", default_value=5.0)
-    s1 = sa.arbitrary_schedule_factory(
+    tsa.extend_optimizer(opt1, "custom_param", default_value=5.0)
+    s1 = tsa.arbitrary_schedule_factory(
         opt1, lambda opt: StepLR(opt, step_size=10, gamma=0.5), schedule_target="weight_decay"
     )
-    s2 = sa.arbitrary_schedule_factory(
+    s2 = tsa.arbitrary_schedule_factory(
         opt1, lambda opt: ExponentialLR(opt, gamma=0.9), schedule_target="custom_param"
     )
-    sync1 = sa.SynchronousSchedule([s1, s2])
+    sync1 = tsa.SynchronousSchedule([s1, s2])
     opt1.load_state_dict(checkpoint_restored["optimizer"])
     sync1.load_state_dict(checkpoint_restored["scheduler"])
 
@@ -378,14 +378,14 @@ def test_state_dict_with_multiple_schedules(optimizer):
     # Run 2: Load same checkpoint and step 10 times
     model2 = nn.Linear(10, 1)
     opt2 = AdamW(model2.parameters(), lr=0.001, weight_decay=0.01)
-    sa.extend_optimizer(opt2, "custom_param", default_value=5.0)
-    s3 = sa.arbitrary_schedule_factory(
+    tsa.extend_optimizer(opt2, "custom_param", default_value=5.0)
+    s3 = tsa.arbitrary_schedule_factory(
         opt2, lambda opt: StepLR(opt, step_size=10, gamma=0.5), schedule_target="weight_decay"
     )
-    s4 = sa.arbitrary_schedule_factory(
+    s4 = tsa.arbitrary_schedule_factory(
         opt2, lambda opt: ExponentialLR(opt, gamma=0.9), schedule_target="custom_param"
     )
-    sync2 = sa.SynchronousSchedule([s3, s4])
+    sync2 = tsa.SynchronousSchedule([s3, s4])
     opt2.load_state_dict(checkpoint_restored["optimizer"])
     sync2.load_state_dict(checkpoint_restored["scheduler"])
 
@@ -410,13 +410,13 @@ def test_load_state_from_earlier_step(optimizer):
 
     This tests that we can "rewind" a scheduler by loading an earlier checkpoint.
     """
-    sched = sa.arbitrary_schedule_factory(
+    sched = tsa.arbitrary_schedule_factory(
         optimizer,
         lambda opt: ExponentialLR(opt, gamma=0.9),
         schedule_target="weight_decay",
     )
 
-    sync = sa.SynchronousSchedule([sched])
+    sync = tsa.SynchronousSchedule([sched])
 
     # Step to 10 and save checkpoint (both optimizer and scheduler)
     for _ in range(10):
@@ -441,12 +441,12 @@ def test_load_state_from_earlier_step(optimizer):
     # Create new optimizer and scheduler, load checkpoint from step 10
     new_model = nn.Linear(10, 1)
     new_optimizer = AdamW(new_model.parameters(), lr=0.001, weight_decay=0.01)
-    new_sched = sa.arbitrary_schedule_factory(
+    new_sched = tsa.arbitrary_schedule_factory(
         new_optimizer,
         lambda opt: ExponentialLR(opt, gamma=0.9),
         schedule_target="weight_decay",
     )
-    new_sync = sa.SynchronousSchedule([new_sched])
+    new_sync = tsa.SynchronousSchedule([new_sched])
 
     # Load earlier checkpoint (step 10)
     new_optimizer.load_state_dict(checkpoint_at_10["optimizer"])
@@ -469,14 +469,14 @@ def test_synchronous_schedule_allows_different_named_schedules(optimizer):
     # One for lr, one for weight_decay - different names
     lr_sched = StepLR(optimizer, step_size=10)
 
-    wd_sched = sa.arbitrary_schedule_factory(
+    wd_sched = tsa.arbitrary_schedule_factory(
         optimizer,
         lambda opt: StepLR(opt, step_size=5),
         schedule_target="weight_decay",
     )
 
     # Observable: No error - different names
-    sync = sa.SynchronousSchedule([lr_sched, wd_sched])
+    sync = tsa.SynchronousSchedule([lr_sched, wd_sched])
 
     # Observable: Works correctly
     sync.step()

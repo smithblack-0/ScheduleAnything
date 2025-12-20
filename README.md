@@ -20,7 +20,7 @@ pip install torch-schedule-anything
 
 Canonically imported as:
 ```python
-import torch_schedule_anything as sa
+import torch_schedule_anything as tsa
 ```
 
 ## Quick Start
@@ -28,14 +28,14 @@ import torch_schedule_anything as sa
 ```python
 import torch.nn as nn
 from torch.optim import AdamW
-import torch_schedule_anything as sa
+import torch_schedule_anything as tsa
 
 # Standard PyTorch setup
 model = nn.Linear(10, 1)
 optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
 # Schedule weight decay with cosine annealing
-scheduler = sa.cosine_annealing_with_warmup(
+scheduler = tsa.cosine_annealing_with_warmup(
     optimizer,
     warmup_to_value=1.0,
     anneal_to_value=0.01,
@@ -43,7 +43,7 @@ scheduler = sa.cosine_annealing_with_warmup(
     num_training_steps=1000,
     schedule_target='weight_decay'
 )
-scheduler = sa.SynchronousSchedule([scheduler])
+scheduler = tsa.SynchronousSchedule([scheduler])
 
 # Training loop
 for step in range(1000):
@@ -121,7 +121,7 @@ def my_custom_gradient_clipping(optimizer):
     Apply gradient clipping per parameter group based on scheduled thresholds.
     Reads 'gradient_clip_threshold' from each param_group.
     """
-    for threshold, parameters, group in sa.get_param_groups_regrouped_by_key(optimizer, "gradient_clip_threshold"):
+    for threshold, parameters, group in tsa.get_param_groups_regrouped_by_key(optimizer, "gradient_clip_threshold"):
         torch.nn.utils.clip_grad_norm_(parameters, max_norm=threshold)
 ```
 
@@ -138,13 +138,13 @@ You want to:
 import torch
 import torch.nn as nn
 from torch.optim import AdamW
-import torch_schedule_anything as sa
+import torch_schedule_anything as tsa
 
 optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
 # Custom parameter: Gradient clipping threshold
 # Use your custom scheduler via factory - starts at 10, anneals to 0
-clip_scheduler = sa.arbitrary_schedule_factory(
+clip_scheduler = tsa.arbitrary_schedule_factory(
     optimizer=optimizer,
     schedule_factory=lambda opt: MyCustomSchedule(opt, train_steps=10000),
     default_value=10.0,  # Initialize the custom parameter
@@ -154,7 +154,7 @@ clip_scheduler = sa.arbitrary_schedule_factory(
 
 # Built-in: Weight decay strengthening over training
 # Quadratic curve - starts loose (0.01), tightens near end (1.0)
-wd_scheduler = sa.quadratic_schedule_with_warmup(
+wd_scheduler = tsa.quadratic_schedule_with_warmup(
     optimizer,
     warmup_to_value=0.01,
     anneal_to_value=1.0,
@@ -164,7 +164,7 @@ wd_scheduler = sa.quadratic_schedule_with_warmup(
 )
 
 # Built-in: Standard learning rate with cosine annealing
-lr_scheduler = sa.cosine_annealing_with_warmup(
+lr_scheduler = tsa.cosine_annealing_with_warmup(
     optimizer,
     warmup_to_value=1.0,
     anneal_to_value=0.01,
@@ -174,7 +174,7 @@ lr_scheduler = sa.cosine_annealing_with_warmup(
 )
 
 # Coordinate all three schedules
-sync = sa.SynchronousSchedule([clip_scheduler, wd_scheduler, lr_scheduler])
+sync = tsa.SynchronousSchedule([clip_scheduler, wd_scheduler, lr_scheduler])
 
 # Training loop (step-based)
 for step in range(10000):
