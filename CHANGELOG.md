@@ -1,5 +1,48 @@
 # Changelog
 
+## 1.1.2
+
+Documentation improvements
+
+- Added `documentation/examples_and_tutorials.md` to organize hands-on examples and tutorials
+- Examples released incrementally with accompanying Medium articles
+- First example: `basic_weight_decay_scheduling.ipynb` - scheduling weight decay in custom training loops
+- Standardized navigation sections across all documentation files for consistency
+- Added "Open in Colab" links for direct access to runnable notebooks
+- Minor bugfix on basic_weight_decay_scheduling example
+- API IS FINAL.
+
+## 1.1.1
+
+**BREAKING CHANGE**: Import alias changed from `sa` to `tsa`
+
+Changed canonical import from `import torch_schedule_anything as sa` to `import torch_schedule_anything as tsa` due to namespace conflict with SQLAlchemy (which uses `sa` as standard convention).
+
+**Why the change:**
+- SQLAlchemy has long-established convention of `import sqlalchemy as sa`
+- Having two popular libraries use the same alias causes confusion and conflicts
+- `tsa` stands for "Torch Schedule Anything" - clear and unique
+- This is the final API convention change before public Medium release
+
+**What changed:**
+- All documentation updated to use `tsa` instead of `sa`
+- All test files updated to use `tsa` instead of `sa`
+- All code examples now show `import torch_schedule_anything as tsa`
+
+**Migration:** Simply replace `import torch_schedule_anything as sa` with `import torch_schedule_anything as tsa` in your code.
+
+## 1.1.0
+
+- Added first example into examples folder (basic_weight_decay_scheduling.ipynb)
+- Initial detection of SQLAlchemy collision 
+
+## 1.0.2
+
+- Fixed LaTeX underscore rendering for GitHub in documentation
+- Changed `\text{initial\_hyperparameter\_value}` to backtick-wrapped `\text{initial_hyperparameter_value}`
+- GitHub doesn't render underscores correctly inside $$ math blocks
+- Fixed in user_guide.md (1 instance) and builtin_schedules.md (14 instances)
+
 ## 1.0.1 
 
 - Minor format fix in readme

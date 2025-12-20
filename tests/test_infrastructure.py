@@ -26,7 +26,7 @@ try:
 except ImportError:
     from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 
-import src.torch_schedule_anything as sa
+import src.torch_schedule_anything as tsa
 
 # =============================================================================
 # arbitrary_schedule_factory Tests
@@ -37,7 +37,7 @@ def test_factory_returns_scheduler(optimizer):
     """
     Contract: arbitrary_schedule_factory returns a PyTorch LRScheduler instance.
     """
-    scheduler = sa.arbitrary_schedule_factory(
+    scheduler = tsa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: StepLR(opt, step_size=10),
         schedule_target="weight_decay",
@@ -52,7 +52,7 @@ def test_factory_with_existing_parameter(optimizer):
     """
     initial_wd = optimizer.param_groups[0]["weight_decay"]
 
-    scheduler = sa.arbitrary_schedule_factory(
+    scheduler = tsa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: StepLR(opt, step_size=1, gamma=0.5),
         schedule_target="weight_decay",
@@ -75,7 +75,7 @@ def test_factory_creates_new_parameter(optimizer):
     # Verify parameter doesn't exist initially
     assert "gradient_clip_threshold" not in optimizer.param_groups[0]
 
-    sa.arbitrary_schedule_factory(
+    tsa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: StepLR(opt, step_size=10),
         default_value=10.0,
@@ -92,7 +92,7 @@ def test_factory_with_step_lr(optimizer):
     Contract: Compatible with PyTorch StepLR scheduler.
     Observable: Parameter updates according to StepLR schedule.
     """
-    scheduler = sa.arbitrary_schedule_factory(
+    scheduler = tsa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: StepLR(opt, step_size=2, gamma=0.1),
         schedule_target="weight_decay",
@@ -115,7 +115,7 @@ def test_factory_with_cosine_annealing_lr(optimizer):
     Contract: Compatible with PyTorch CosineAnnealingLR scheduler.
     Observable: Parameter follows cosine curve.
     """
-    scheduler = sa.arbitrary_schedule_factory(
+    scheduler = tsa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: CosineAnnealingLR(opt, T_max=10),
         schedule_target="weight_decay",
@@ -136,7 +136,7 @@ def test_factory_with_exponential_lr(optimizer):
     Contract: Compatible with PyTorch ExponentialLR scheduler.
     Observable: Parameter decays exponentially.
     """
-    scheduler = sa.arbitrary_schedule_factory(
+    scheduler = tsa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: ExponentialLR(opt, gamma=0.9),
         schedule_target="weight_decay",
@@ -156,7 +156,7 @@ def test_factory_with_lambda_lr(optimizer):
     """
     base_wd = optimizer.param_groups[0]["weight_decay"]  # 0.01
 
-    scheduler = sa.arbitrary_schedule_factory(
+    scheduler = tsa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: LambdaLR(opt, lr_lambda=lambda t: 0.5),
         schedule_target="weight_decay",
@@ -176,7 +176,7 @@ def test_factory_schedule_actually_updates_parameter(optimizer):
     Contract: Scheduler actually modifies the target parameter over time.
     Observable: Multiple steps cause parameter to change.
     """
-    scheduler = sa.arbitrary_schedule_factory(
+    scheduler = tsa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: ExponentialLR(opt, gamma=0.9),
         schedule_target="weight_decay",
@@ -196,7 +196,7 @@ def test_factory_with_lr_target_is_default(optimizer):
     Contract: Default schedule_target is 'lr' when omitted.
     Observable: Learning rate is modified when schedule_target not specified.
     """
-    scheduler = sa.arbitrary_schedule_factory(
+    scheduler = tsa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: StepLR(opt, step_size=1, gamma=0.5),
         # schedule_target omitted - should default to 'lr'
@@ -218,7 +218,7 @@ def test_factory_with_multiple_param_groups(optimizer_with_multiple_param_groups
     """
     opt = optimizer_with_multiple_param_groups
 
-    scheduler = sa.arbitrary_schedule_factory(
+    scheduler = tsa.arbitrary_schedule_factory(
         optimizer=opt,
         schedule_factory=lambda o: StepLR(o, step_size=1, gamma=0.5),
         schedule_target="weight_decay",
@@ -238,7 +238,7 @@ def test_factory_throws_invalid_target(optimizer):
     """Test when trying to construct on an invalid target we throw"""
 
     with pytest.raises(KeyError):
-        sa.arbitrary_schedule_factory(
+        tsa.arbitrary_schedule_factory(
             optimizer=optimizer,
             schedule_factory=lambda opt: StepLR(opt, step_size=1, gamma=0.5),
             schedule_target="burble",
@@ -257,7 +257,7 @@ def test_extend_adds_parameter_to_all_param_groups(optimizer_with_multiple_param
     """
     opt = optimizer_with_multiple_param_groups
 
-    sa.extend_optimizer(opt, "custom_param", default_value=5.0)
+    tsa.extend_optimizer(opt, "custom_param", default_value=5.0)
 
     # Observable: All param_groups have the parameter
     assert opt.param_groups[0]["custom_param"] == 5.0
@@ -272,7 +272,7 @@ def test_extend_does_not_overwrite_existing_by_default(optimizer):
     # Manually add parameter to first group
     optimizer.param_groups[0]["custom_param"] = 3.0
 
-    sa.extend_optimizer(optimizer, "custom_param", default_value=5.0, overwrite_values=False)
+    tsa.extend_optimizer(optimizer, "custom_param", default_value=5.0, overwrite_values=False)
 
     # Observable: Existing value preserved
     assert optimizer.param_groups[0]["custom_param"] == 3.0
@@ -286,7 +286,7 @@ def test_extend_overwrites_when_flag_true(optimizer):
     # Manually add parameter
     optimizer.param_groups[0]["custom_param"] = 3.0
 
-    sa.extend_optimizer(optimizer, "custom_param", default_value=5.0, overwrite_values=True)
+    tsa.extend_optimizer(optimizer, "custom_param", default_value=5.0, overwrite_values=True)
 
     # Observable: Value overwritten
     assert optimizer.param_groups[0]["custom_param"] == 5.0
@@ -297,7 +297,7 @@ def test_extend_returns_optimizer(optimizer):
     Contract: extend_optimizer returns the optimizer instance for chaining.
     Observable: Returned object is the same optimizer.
     """
-    result = sa.extend_optimizer(optimizer, "custom_param", default_value=1.0)
+    result = tsa.extend_optimizer(optimizer, "custom_param", default_value=1.0)
 
     # Observable: Same optimizer instance
     assert result is optimizer
@@ -309,10 +309,10 @@ def test_extend_validates_default_value_is_number(optimizer):
     Observable: Raises error for non-numeric values.
     """
     with pytest.raises((TypeError, ValueError)):
-        sa.extend_optimizer(optimizer, "custom_param", default_value="invalid")
+        tsa.extend_optimizer(optimizer, "custom_param", default_value="invalid")
 
     with pytest.raises((TypeError, ValueError)):
-        sa.extend_optimizer(optimizer, "custom_param", default_value=[1, 2, 3])
+        tsa.extend_optimizer(optimizer, "custom_param", default_value=[1, 2, 3])
 
 
 def test_extend_with_different_numeric_types(optimizer):
@@ -321,11 +321,11 @@ def test_extend_with_different_numeric_types(optimizer):
     Observable: int, float work correctly.
     """
     # Test with int
-    sa.extend_optimizer(optimizer, "param_int", default_value=5)
+    tsa.extend_optimizer(optimizer, "param_int", default_value=5)
     assert optimizer.param_groups[0]["param_int"] == 5
 
     # Test with float
-    sa.extend_optimizer(optimizer, "param_float", default_value=3.14)
+    tsa.extend_optimizer(optimizer, "param_float", default_value=3.14)
     assert abs(optimizer.param_groups[0]["param_float"] - 3.14) < 1e-6
 
 
@@ -339,7 +339,7 @@ def test_regrouped_returns_correct_structure(optimizer):
     Contract: get_param_groups_regrouped_by_key returns list of (value, params, group_dict) tuples.
     Observable: Return type matches documented signature.
     """
-    result = sa.get_param_groups_regrouped_by_key(optimizer, "lr")
+    result = tsa.get_param_groups_regrouped_by_key(optimizer, "lr")
 
     # Observable: Returns list
     assert isinstance(result, list)
@@ -362,7 +362,7 @@ def test_regrouped_with_uniform_values(optimizer):
     Observable: All param_groups have same lr, returns single tuple with all parameters.
     """
     # All param_groups have lr=0.001
-    result = sa.get_param_groups_regrouped_by_key(optimizer, "lr")
+    result = tsa.get_param_groups_regrouped_by_key(optimizer, "lr")
 
     # Observable: Single group (all have same lr)
     assert len(result) == 1
@@ -379,7 +379,7 @@ def test_regrouped_with_different_values(optimizer_with_multiple_param_groups):
     """
     opt = optimizer_with_multiple_param_groups
 
-    result = sa.get_param_groups_regrouped_by_key(opt, "lr")
+    result = tsa.get_param_groups_regrouped_by_key(opt, "lr")
 
     # Observable: Two groups (lr=0.001 and lr=0.01)
     assert len(result) == 2
@@ -395,9 +395,9 @@ def test_regrouped_with_custom_parameter(optimizer):
     Observable: Custom parameter can be regrouped.
     """
     # Add custom parameter
-    sa.extend_optimizer(optimizer, "custom_param", default_value=7.5)
+    tsa.extend_optimizer(optimizer, "custom_param", default_value=7.5)
 
-    result = sa.get_param_groups_regrouped_by_key(optimizer, "custom_param")
+    result = tsa.get_param_groups_regrouped_by_key(optimizer, "custom_param")
 
     # Observable: Returns results for custom parameter
     assert len(result) >= 1
@@ -410,7 +410,7 @@ def test_regrouped_params_are_actual_parameters(optimizer):
     Contract: Returned params are actual torch.nn.Parameter instances.
     Observable: Can be used directly with PyTorch functions.
     """
-    result = sa.get_param_groups_regrouped_by_key(optimizer, "lr")
+    result = tsa.get_param_groups_regrouped_by_key(optimizer, "lr")
 
     value, params, group_dict = result[0]
 
@@ -423,7 +423,7 @@ def test_regrouped_group_dict_contains_original_params(optimizer):
     Contract: group_dict contains the complete param_group dictionary.
     Observable: Can access other param_group fields through group_dict.
     """
-    result = sa.get_param_groups_regrouped_by_key(optimizer, "lr")
+    result = tsa.get_param_groups_regrouped_by_key(optimizer, "lr")
 
     value, params, group_dict = result[0]
 
@@ -440,7 +440,7 @@ def test_regrouped_with_weight_decay_parameter(optimizer_with_multiple_param_gro
     """
     opt = optimizer_with_multiple_param_groups
 
-    result = sa.get_param_groups_regrouped_by_key(opt, "weight_decay")
+    result = tsa.get_param_groups_regrouped_by_key(opt, "weight_decay")
 
     # Observable: Two groups (weight_decay=0.01 and 0.1)
     assert len(result) == 2
@@ -460,7 +460,7 @@ def test_regrouped_preserves_all_parameters(optimizer_with_multiple_param_groups
     # Count original parameters
     original_param_count = sum(len(g["params"]) for g in opt.param_groups)
 
-    result = sa.get_param_groups_regrouped_by_key(opt, "lr")
+    result = tsa.get_param_groups_regrouped_by_key(opt, "lr")
 
     # Count regrouped parameters
     regrouped_param_count = sum(len(params) for _, params, _ in result)

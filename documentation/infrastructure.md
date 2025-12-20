@@ -13,9 +13,10 @@ Most users will primarily use `SynchronousSchedule` for coordination and occasio
 
 ## Navigation
 
-- See [Built-In Schedules](builtin_schedules.md) for complete API reference of builtin schedules with mathematical formulas
-- See [User Guide](user_guide.md) for how to use the system.
-- Read the [README](README.md) for installation and quick start.
+- **[Examples & Tutorials](examples_and_tutorials.md)** - Hands-on Colab notebooks with step-by-step tutorials
+- **[User Guide](user_guide.md)** - Complete usage guide and concepts
+- **[Built-In Schedules](builtin_schedules.md)** - API reference for all builtin schedules
+- **[README](../README.md)** - Installation and quick start
 ---
 
 ## The arbitrary_schedule_factory
@@ -50,12 +51,12 @@ arbitrary_schedule_factory(
 ```python
 from torch.optim import Adam
 from torch.optim.lr_scheduler import StepLR
-import torch_schedule_anything as sa
+import torch_schedule_anything as tsa
 
 optimizer = Adam(model.parameters(), lr=0.001)
 
 # Schedule momentum using StepLR
-momentum_scheduler = sa.arbitrary_schedule_factory(
+momentum_scheduler = tsa.arbitrary_schedule_factory(
     optimizer=optimizer,
     schedule_factory=lambda opt: StepLR(opt, step_size=30, gamma=0.5),
     default_value=0.9,  # Initialize momentum to 0.9
@@ -104,7 +105,7 @@ Step all managed schedulers together.
 
 **Example:**
 ```python
-sync = sa.SynchronousSchedule([lr_scheduler, wd_scheduler])
+sync = tsa.SynchronousSchedule([lr_scheduler, wd_scheduler])
 for epoch in range(100):
     # training...
     sync.step()
@@ -175,18 +176,18 @@ Restore the state of all managed schedulers.
 **Complete Example:**
 
 ```python
-import torch_schedule_anything as sa
+import torch_schedule_anything as tsa
 
 # Create multiple schedules
-lr_scheduler = sa.cosine_annealing_with_warmup(
+lr_scheduler = tsa.cosine_annealing_with_warmup(
     optimizer, 1, 0.01, 100, 1000, schedule_target='lr'
 )
-wd_scheduler = sa.quadratic_schedule_with_warmup(
+wd_scheduler = tsa.quadratic_schedule_with_warmup(
     optimizer, 0.1, 1.0, 100, 1000, schedule_target='weight_decay'
 )
 
 # Coordinate them
-sync = sa.SynchronousSchedule([lr_scheduler, wd_scheduler])
+sync = tsa.SynchronousSchedule([lr_scheduler, wd_scheduler])
 
 # Training loop
 for step in range(1000):
@@ -245,18 +246,18 @@ extend_optimizer(
 
 ```python
 from torch.optim import SGD
-import torch_schedule_anything as sa
+import torch_schedule_anything as tsa
 
 optimizer = SGD(model.parameters(), lr=0.1)
 
 # Add custom parameter
-sa.extend_optimizer(optimizer, 'gradient_clip_threshold', default_value=10.0)
+tsa.extend_optimizer(optimizer, 'gradient_clip_threshold', default_value=10.0)
 
 # Now gradient_clip_threshold exists in all param_groups
 print(optimizer.param_groups[0]['gradient_clip_threshold'])  # 10.0
 
 # Can now schedule it
-clip_scheduler = sa.arbitrary_schedule_factory(
+clip_scheduler = tsa.arbitrary_schedule_factory(
     optimizer,
     lambda opt: CosineAnnealingLR(opt, T_max=1000),
     schedule_target='gradient_clip_threshold'
@@ -301,7 +302,7 @@ get_param_groups_regrouped_by_key(
 ```python
 def my_custom_gradient_clipping(optimizer):
     """Apply gradient clipping with per-group scheduled thresholds."""
-    for threshold, params, group in sa.get_param_groups_regrouped_by_key(
+    for threshold, params, group in tsa.get_param_groups_regrouped_by_key(
         optimizer, 'gradient_clip_threshold'
     ):
         torch.nn.utils.clip_grad_norm_(params, max_norm=threshold)
@@ -319,11 +320,11 @@ optimizer.step()
 def log_scheduled_parameters(optimizer, step):
     """Log all scheduled parameter values."""
     # Learning rates
-    for lr, params, group in sa.get_param_groups_regrouped_by_key(optimizer, 'lr'):
+    for lr, params, group in tsa.get_param_groups_regrouped_by_key(optimizer, 'lr'):
         print(f"Step {step}, LR: {lr}, Params: {len(params)}")
     
     # Weight decays
-    for wd, params, group in sa.get_param_groups_regrouped_by_key(optimizer, 'weight_decay'):
+    for wd, params, group in tsa.get_param_groups_regrouped_by_key(optimizer, 'weight_decay'):
         print(f"Step {step}, WD: {wd}, Params: {len(params)}")
 ```
 
@@ -332,7 +333,7 @@ def log_scheduled_parameters(optimizer, step):
 ```python
 def apply_conditional_regularization(optimizer):
     """Apply different regularization based on weight decay value."""
-    for wd, params, group in sa.get_param_groups_regrouped_by_key(
+    for wd, params, group in tsa.get_param_groups_regrouped_by_key(
         optimizer, 'weight_decay'
     ):
         if wd > 0.05:
@@ -347,6 +348,7 @@ def apply_conditional_regularization(optimizer):
 
 ## See Also
 
-- See [Built-In Schedules](builtin_schedules.md) for complete API reference of builtin schedules with mathematical formulas
-- See [User Guide](user_guide.md) for how to use the system.
-- Read the [README](README.md) for installation and quick start.
+- **[Examples & Tutorials](examples_and_tutorials.md)** - Hands-on Colab notebooks with step-by-step tutorials
+- **[User Guide](user_guide.md)** - Complete usage guide and concepts
+- **[Built-In Schedules](builtin_schedules.md)** - API reference for all builtin schedules
+- **[README](../README.md)** - Installation and quick start

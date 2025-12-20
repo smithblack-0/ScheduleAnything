@@ -17,7 +17,7 @@ import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import ExponentialLR, StepLR
 
-import src.torch_schedule_anything as sa
+import src.torch_schedule_anything as tsa
 
 # =============================================================================
 # README Examples
@@ -29,7 +29,7 @@ def test_readme_quick_start_example():
     Contract: README quick start example works as documented.
 
     From README.md:
-        scheduler = sa.cosine_annealing_with_warmup(
+        scheduler = tsa.cosine_annealing_with_warmup(
             optimizer,
             warmup_to_value=1.0,
             anneal_to_value=0.01,
@@ -37,7 +37,7 @@ def test_readme_quick_start_example():
             num_training_steps=1000,
             schedule_target='weight_decay'
         )
-        scheduler = sa.SynchronousSchedule([scheduler])
+        scheduler = tsa.SynchronousSchedule([scheduler])
 
         for step in range(1000):
             scheduler.step()
@@ -46,7 +46,7 @@ def test_readme_quick_start_example():
     model = nn.Linear(10, 1)
     optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
-    scheduler = sa.cosine_annealing_with_warmup(
+    scheduler = tsa.cosine_annealing_with_warmup(
         optimizer,
         warmup_to_value=1.0,
         anneal_to_value=0.01,
@@ -54,7 +54,7 @@ def test_readme_quick_start_example():
         num_training_steps=1000,
         schedule_target="weight_decay",
     )
-    scheduler = sa.SynchronousSchedule([scheduler])
+    scheduler = tsa.SynchronousSchedule([scheduler])
 
     initial_wd = optimizer.param_groups[0]["weight_decay"]
 
@@ -80,7 +80,7 @@ def test_readme_case_study_complete_training_setup():
     optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
     # Custom parameter: Gradient clipping threshold using factory
-    clip_scheduler = sa.arbitrary_schedule_factory(
+    clip_scheduler = tsa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: StepLR(opt, step_size=1000, gamma=0.1),
         default_value=10.0,
@@ -88,7 +88,7 @@ def test_readme_case_study_complete_training_setup():
     )
 
     # Built-in: Weight decay strengthening
-    wd_scheduler = sa.quadratic_schedule_with_warmup(
+    wd_scheduler = tsa.quadratic_schedule_with_warmup(
         optimizer,
         warmup_to_value=0.01,
         anneal_to_value=1.0,
@@ -98,7 +98,7 @@ def test_readme_case_study_complete_training_setup():
     )
 
     # Built-in: Standard learning rate with cosine annealing
-    lr_scheduler = sa.cosine_annealing_with_warmup(
+    lr_scheduler = tsa.cosine_annealing_with_warmup(
         optimizer,
         warmup_to_value=1.0,
         anneal_to_value=0.01,
@@ -108,7 +108,7 @@ def test_readme_case_study_complete_training_setup():
     )
 
     # Coordinate all three schedules
-    sync = sa.SynchronousSchedule([clip_scheduler, wd_scheduler, lr_scheduler])
+    sync = tsa.SynchronousSchedule([clip_scheduler, wd_scheduler, lr_scheduler])
 
     # Observable: Custom parameter was created
     assert "gradient_clip_threshold" in optimizer.param_groups[0]
@@ -139,7 +139,7 @@ def test_user_guide_quick_example():
     optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
     # Schedule weight decay with cosine annealing
-    scheduler = sa.cosine_annealing_with_warmup(
+    scheduler = tsa.cosine_annealing_with_warmup(
         optimizer,
         warmup_to_value=1.0,
         anneal_to_value=0.01,
@@ -147,7 +147,7 @@ def test_user_guide_quick_example():
         num_training_steps=1000,
         schedule_target="weight_decay",
     )
-    scheduler = sa.SynchronousSchedule([scheduler])
+    scheduler = tsa.SynchronousSchedule([scheduler])
 
     # Training loop
     for step in range(1000):
@@ -166,7 +166,7 @@ def test_user_guide_multi_parameter_scheduling():
     model = nn.Linear(10, 1)
     optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
-    lr_scheduler = sa.cosine_annealing_with_warmup(
+    lr_scheduler = tsa.cosine_annealing_with_warmup(
         optimizer,
         warmup_to_value=1.0,
         anneal_to_value=0.001,
@@ -175,7 +175,7 @@ def test_user_guide_multi_parameter_scheduling():
         schedule_target="lr",
     )
 
-    wd_scheduler = sa.quadratic_schedule_with_warmup(
+    wd_scheduler = tsa.quadratic_schedule_with_warmup(
         optimizer,
         warmup_to_value=1.0,
         anneal_to_value=0.01,
@@ -185,7 +185,7 @@ def test_user_guide_multi_parameter_scheduling():
     )
 
     # Synchronize them
-    sync = sa.SynchronousSchedule([lr_scheduler, wd_scheduler])
+    sync = tsa.SynchronousSchedule([lr_scheduler, wd_scheduler])
 
     # Single step() call updates both
     for step in range(1000):
@@ -214,7 +214,7 @@ def test_user_guide_factory_with_existing_parameter():
     # Adam already has weight_decay - no default needed
     optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
-    scheduler = sa.arbitrary_schedule_factory(
+    scheduler = tsa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: StepLR(opt, step_size=100, gamma=0.5),
         schedule_target="weight_decay",
@@ -234,7 +234,7 @@ def test_user_guide_factory_with_new_parameter():
     optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
     # Creating a custom parameter for the first time
-    sa.arbitrary_schedule_factory(
+    tsa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: StepLR(opt, step_size=100, gamma=0.95),
         default_value=1.0,
@@ -255,10 +255,10 @@ def test_user_guide_direct_optimizer_extension():
     optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
     # Add a custom parameter to all param groups
-    sa.extend_optimizer(optimizer, "gradient_clip_threshold", default_value=10.0)
+    tsa.extend_optimizer(optimizer, "gradient_clip_threshold", default_value=10.0)
 
     # Now schedule it
-    sa.arbitrary_schedule_factory(
+    tsa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: StepLR(opt, step_size=100, gamma=0.5),
         schedule_target="gradient_clip_threshold",
@@ -284,7 +284,7 @@ def test_custom_parameter_with_get_param_groups_regrouped():
     optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
     # Create and schedule custom parameter
-    scheduler = sa.arbitrary_schedule_factory(
+    scheduler = tsa.arbitrary_schedule_factory(
         optimizer=optimizer,
         schedule_factory=lambda opt: StepLR(opt, step_size=10, gamma=0.5),
         default_value=10.0,
@@ -292,12 +292,12 @@ def test_custom_parameter_with_get_param_groups_regrouped():
     )
 
     # Step the scheduler
-    sync = sa.SynchronousSchedule([scheduler])
+    sync = tsa.SynchronousSchedule([scheduler])
     for _ in range(15):
         sync.step()
 
     # Use get_param_groups_regrouped_by_key to access
-    regrouped = sa.get_param_groups_regrouped_by_key(optimizer, "gradient_clip_threshold")
+    regrouped = tsa.get_param_groups_regrouped_by_key(optimizer, "gradient_clip_threshold")
 
     # Observable: Can access scheduled values
     assert len(regrouped) >= 1
@@ -324,14 +324,14 @@ def test_state_dict_checkpoint_resume_workflow():
     model = nn.Linear(10, 1)
     optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
-    lr_scheduler = sa.cosine_annealing_with_warmup(
+    lr_scheduler = tsa.cosine_annealing_with_warmup(
         optimizer, 1.0, 0.01, 100, 1000, schedule_target="lr"
     )
-    wd_scheduler = sa.quadratic_schedule_with_warmup(
+    wd_scheduler = tsa.quadratic_schedule_with_warmup(
         optimizer, 1.0, 0.01, 100, 1000, schedule_target="weight_decay"
     )
 
-    sync = sa.SynchronousSchedule([lr_scheduler, wd_scheduler])
+    sync = tsa.SynchronousSchedule([lr_scheduler, wd_scheduler])
 
     # Train for 500 steps
     for step in range(500):
@@ -348,14 +348,14 @@ def test_state_dict_checkpoint_resume_workflow():
     new_model = nn.Linear(10, 1)
     new_optimizer = AdamW(new_model.parameters(), lr=0.001, weight_decay=0.01)
 
-    new_lr_scheduler = sa.cosine_annealing_with_warmup(
+    new_lr_scheduler = tsa.cosine_annealing_with_warmup(
         new_optimizer, 1.0, 0.01, 100, 1000, schedule_target="lr"
     )
-    new_wd_scheduler = sa.quadratic_schedule_with_warmup(
+    new_wd_scheduler = tsa.quadratic_schedule_with_warmup(
         new_optimizer, 1.0, 0.01, 100, 1000, schedule_target="weight_decay"
     )
 
-    new_sync = sa.SynchronousSchedule([new_lr_scheduler, new_wd_scheduler])
+    new_sync = tsa.SynchronousSchedule([new_lr_scheduler, new_wd_scheduler])
 
     # Load checkpoint
     new_model.load_state_dict(checkpoint["model"])
@@ -389,22 +389,22 @@ def test_scheduling_multiple_different_parameters():
     )
 
     # Add multiple custom parameters
-    sa.extend_optimizer(optimizer, "custom_1", default_value=1.0)
-    sa.extend_optimizer(optimizer, "custom_2", default_value=2.0)
+    tsa.extend_optimizer(optimizer, "custom_1", default_value=1.0)
+    tsa.extend_optimizer(optimizer, "custom_2", default_value=2.0)
 
     # Schedule them all
-    lr_sched = sa.cosine_annealing_with_warmup(optimizer, 1.0, 0.1, 10, 100, schedule_target="lr")
-    wd_sched = sa.linear_schedule_with_warmup(
+    lr_sched = tsa.cosine_annealing_with_warmup(optimizer, 1.0, 0.1, 10, 100, schedule_target="lr")
+    wd_sched = tsa.linear_schedule_with_warmup(
         optimizer, 1.0, 0.1, 10, 100, schedule_target="weight_decay"
     )
-    c1_sched = sa.arbitrary_schedule_factory(
+    c1_sched = tsa.arbitrary_schedule_factory(
         optimizer, lambda opt: StepLR(opt, step_size=10), schedule_target="custom_1"
     )
-    c2_sched = sa.arbitrary_schedule_factory(
+    c2_sched = tsa.arbitrary_schedule_factory(
         optimizer, lambda opt: StepLR(opt, step_size=5), schedule_target="custom_2"
     )
 
-    sync = sa.SynchronousSchedule([lr_sched, wd_sched, c1_sched, c2_sched])
+    sync = tsa.SynchronousSchedule([lr_sched, wd_sched, c1_sched, c2_sched])
 
     # Run for some steps
     for _ in range(50):
@@ -425,7 +425,7 @@ def test_zero_warmup_steps():
     model = nn.Linear(10, 1)
     optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
-    scheduler = sa.cosine_annealing_with_warmup(
+    scheduler = tsa.cosine_annealing_with_warmup(
         optimizer,
         warmup_to_value=1.0,
         anneal_to_value=0.1,
@@ -433,7 +433,7 @@ def test_zero_warmup_steps():
         num_training_steps=1000,
     )
 
-    sync = sa.SynchronousSchedule([scheduler])
+    sync = tsa.SynchronousSchedule([scheduler])
 
     # Observable: Works without errors
     for _ in range(100):
@@ -450,7 +450,7 @@ def test_very_long_training():
     model = nn.Linear(10, 1)
     optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
-    scheduler = sa.linear_schedule_with_warmup(
+    scheduler = tsa.linear_schedule_with_warmup(
         optimizer,
         warmup_to_value=1.0,
         anneal_to_value=0.001,
@@ -458,7 +458,7 @@ def test_very_long_training():
         num_training_steps=100000,
     )
 
-    sync = sa.SynchronousSchedule([scheduler])
+    sync = tsa.SynchronousSchedule([scheduler])
 
     # Run for many steps
     for _ in range(10000):
@@ -487,7 +487,7 @@ def test_state_dict_preserves_separate_schedule_states(
         optimizer, "momentum", StepLR, default_value=0.9, step_size=3, gamma=0.7
     )
 
-    sync = sa.SynchronousSchedule([wd_sched, mom_sched])
+    sync = tsa.SynchronousSchedule([wd_sched, mom_sched])
 
     # Step to 10
     for _ in range(10):
@@ -507,7 +507,7 @@ def test_state_dict_preserves_separate_schedule_states(
     new_mom_sched = setup_schedule(
         new_optimizer, "momentum", StepLR, default_value=0.9, step_size=3, gamma=0.7
     )
-    new_sync = sa.SynchronousSchedule([new_wd_sched, new_mom_sched])
+    new_sync = tsa.SynchronousSchedule([new_wd_sched, new_mom_sched])
 
     # Load checkpoint
     new_optimizer.load_state_dict(checkpoint["optimizer"])

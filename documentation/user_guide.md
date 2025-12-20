@@ -33,16 +33,17 @@ This project is deliberately documented using Document-Driven Development, appen
 Throughout this guide and in your code, use:
 
 ```python
-import torch_schedule_anything as sa
+import torch_schedule_anything as tsa
 ```
 
 All examples follow this convention.
 
 ## Navigation
 
-- See [builtin schedules.md](builtin_schedules.md) for complete API reference of builtin schedules with mathematical formulas
-- See [Infrastructure](infrastructure.md) for complete API references of the syncronous schedules and helpers.
-- Read the [README](README.md) for installation and quick start.
+- **[Examples & Tutorials](examples_and_tutorials.md)** - Hands-on Colab notebooks with step-by-step tutorials
+- **[Built-In Schedules](builtin_schedules.md)** - API reference for all builtin schedules
+- **[Infrastructure](infrastructure.md)** - API reference for utilities and arbitrary schedule factories
+- **[README](../README.md)** - Installation and quick start
 
 ---
 ## What is a Schedule?
@@ -50,7 +51,7 @@ All examples follow this convention.
 The term 'Schedule' as defined in this library is the same as in Canonical PyTorch: A multiplier that is applied to an initial hyperparameter. PyTorch schedulers work by computing a **multiplier** λ(t) that gets applied to initial parameter values:
 
 $$
-\text{value}(t) = \text{initial\_hyperparameter\_value} \times \lambda(t)
+\text{value}(t) = `\text{initial_hyperparameter_value}` \times \lambda(t)
 $$
 
 To maintain maximal compatibility, we adopt PyTorch's conventions.
@@ -72,13 +73,13 @@ be explained shortly, you should still use a SynchronousSchedule even when only 
 ```python
 import torch.nn as nn
 from torch.optim import AdamW
-import torch_schedule_anything as sa
+import torch_schedule_anything as tsa
 
 model = nn.Linear(10, 1)
 optimizer = AdamW(model.parameters(), lr=0.001, weight_decay=0.01)
 
 # Schedule weight decay with cosine annealing
-scheduler = sa.cosine_annealing_with_warmup(
+scheduler = tsa.cosine_annealing_with_warmup(
     optimizer,
     warmup_to_value=1.0,
     anneal_to_value=0.01,
@@ -86,7 +87,7 @@ scheduler = sa.cosine_annealing_with_warmup(
     num_training_steps=1000,
     schedule_target='weight_decay'
 )
-scheduler = sa.SynchronousSchedule([scheduler])
+scheduler = tsa.SynchronousSchedule([scheduler])
 
 # Training loop
 for step in range(1000):
@@ -138,7 +139,7 @@ For the most part, the user never needs to interact with these fake optimizers, 
 # Adam already has weight_decay - no default needed
 optimizer = Adam(model.parameters(), lr=0.001, weight_decay=0.01)
 
-scheduler = sa.arbitrary_schedule_factory(
+scheduler = tsa.arbitrary_schedule_factory(
     optimizer=optimizer,
     schedule_factory=lambda opt: CosineAnnealingLR(opt, T_max=100),
     schedule_target='weight_decay',
@@ -149,7 +150,7 @@ scheduler = sa.arbitrary_schedule_factory(
 
 ```python
 # Creating a custom parameter for the first time
-scheduler = sa.arbitrary_schedule_factory(
+scheduler = tsa.arbitrary_schedule_factory(
     optimizer=optimizer,
     schedule_factory=lambda opt: ExponentialLR(opt, gamma=0.95),
     default_value=1.0,  # Base value multiplier applies to
@@ -170,10 +171,10 @@ For advanced use cases, you can extend the optimizer directly before creating sc
 
 ```python
 # Add a custom parameter to all param groups
-sa.extend_optimizer(optimizer, 'gradient_clip_threshold', default_value=10.0)
+tsa.extend_optimizer(optimizer, 'gradient_clip_threshold', default_value=10.0)
 
 # Now schedule it
-scheduler = sa.arbitrary_schedule_factory(
+scheduler = tsa.arbitrary_schedule_factory(
     optimizer=optimizer,
     schedule_factory=lambda opt: StepLR(opt, step_size=100, gamma=0.5),
     schedule_target='gradient_clip_threshold',
@@ -195,8 +196,8 @@ Schedule Anything allows you to schedule multiple parameters independently. This
 If you create multiple schedulers and step them separately, they can desync:
 
 ```python
-lr_scheduler = sa.cosine_annealing_with_warmup(...)
-wd_scheduler = sa.quadratic_schedule_with_warmup(...)
+lr_scheduler = tsa.cosine_annealing_with_warmup(...)
+wd_scheduler = tsa.quadratic_schedule_with_warmup(...)
 
 # Don't do this!
 for step in range(1000):
@@ -208,8 +209,8 @@ for step in range(1000):
 Furthermore, some methods are not true to what they actually do. In reality, the torch schedule is being attached to an optimizer that passes off learning rate changes to the main dictionary in the main optimizer. However, this makes some methods lie.
 
 ```python
-lr_scheduler = sa.cosine_annealing_with_warmup(...)
-wd_scheduler = sa.quadratic_schedule_with_warmup(...)
+lr_scheduler = tsa.cosine_annealing_with_warmup(...)
+wd_scheduler = tsa.quadratic_schedule_with_warmup(...)
 
 # Don't do this!
 for step in range(1000):
@@ -228,7 +229,7 @@ Neither of these are good things, but they are necessary to use raw torch schedu
 `SynchronousSchedule` steps multiple schedulers together in lockstep and provides sane access methods.
 
 ```python
-lr_scheduler = sa.cosine_annealing_with_warmup(
+lr_scheduler = tsa.cosine_annealing_with_warmup(
     optimizer,
     warmup_to_value=1.0,
     anneal_to_value=0.001,
@@ -237,7 +238,7 @@ lr_scheduler = sa.cosine_annealing_with_warmup(
     schedule_target='lr'
 )
 
-wd_scheduler = sa.quadratic_schedule_with_warmup(
+wd_scheduler = tsa.quadratic_schedule_with_warmup(
     optimizer,
     warmup_to_value=1.0,
     anneal_to_value=0.01,
@@ -247,7 +248,7 @@ wd_scheduler = sa.quadratic_schedule_with_warmup(
 )
 
 # Synchronize them
-sync = sa.SynchronousSchedule([lr_scheduler, wd_scheduler])
+sync = tsa.SynchronousSchedule([lr_scheduler, wd_scheduler])
 
 # Single step() call updates both
 for step in range(1000):
@@ -287,6 +288,7 @@ For complete API documentation including mathematical formulas, parameter specif
 
 ## Next Steps
 
-- See [Built-In Schedules](builtin_schedules.md) for complete API reference of builtin schedules with mathematical formulas
-- See [Infrastructure](infrastructure.md) for complete API references of the syncronous schedules and helpers.
-- Read the [README](README.md) for installation and quick start.
+- **[Examples & Tutorials](examples_and_tutorials.md)** - Try hands-on examples in Google Colab
+- **[Built-In Schedules](builtin_schedules.md)** - API reference for all builtin schedules
+- **[Infrastructure](infrastructure.md)** - API reference for utilities and arbitrary schedule factories
+- **[README](../README.md)** - Return to quick start and overview

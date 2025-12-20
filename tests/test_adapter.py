@@ -18,7 +18,7 @@ import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import ExponentialLR, LambdaLR, StepLR
 
-import src.torch_schedule_anything as sa
+import src.torch_schedule_anything as tsa
 from src.torch_schedule_anything.arbitrary_schedules import ArbitraryScheduleAdapter
 
 # =============================================================================
@@ -105,7 +105,7 @@ def test_multiple_adapters_maintain_separate_state(optimizer):
     wd_adapter = ArbitraryScheduleAdapter(optimizer, "weight_decay")
 
     # Add momentum parameter for second adapter
-    sa.extend_optimizer(optimizer, "momentum", default_value=0.9)
+    tsa.extend_optimizer(optimizer, "momentum", default_value=0.9)
     mom_adapter = ArbitraryScheduleAdapter(optimizer, "momentum")
 
     # Create schedulers on each adapter
@@ -137,7 +137,7 @@ def test_three_adapters_coexist(optimizer):
     lr_adapter = ArbitraryScheduleAdapter(optimizer, "lr")
     wd_adapter = ArbitraryScheduleAdapter(optimizer, "weight_decay")
 
-    sa.extend_optimizer(optimizer, "custom_param", default_value=5.0)
+    tsa.extend_optimizer(optimizer, "custom_param", default_value=5.0)
     custom_adapter = ArbitraryScheduleAdapter(optimizer, "custom_param")
 
     # Create schedulers
@@ -166,7 +166,7 @@ def test_adapters_with_different_step_sizes_dont_interfere(optimizer):
     # Create adapters with different step sizes
     wd_adapter = ArbitraryScheduleAdapter(optimizer, "weight_decay")
 
-    sa.extend_optimizer(optimizer, "momentum", default_value=1.0)
+    tsa.extend_optimizer(optimizer, "momentum", default_value=1.0)
     mom_adapter = ArbitraryScheduleAdapter(optimizer, "momentum")
 
     # Create schedulers with different step sizes
