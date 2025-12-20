@@ -40,9 +40,10 @@ All examples follow this convention.
 
 ## Navigation
 
-- See [builtin schedules.md](builtin_schedules.md) for complete API reference of builtin schedules with mathematical formulas
-- See [Infrastructure](infrastructure.md) for complete API references of the syncronous schedules and helpers.
-- Read the [README](README.md) for installation and quick start.
+- **[Examples & Tutorials](examples_and_tutorials.md)** - Hands-on Colab notebooks with step-by-step tutorials
+- **[Built-In Schedules](builtin_schedules.md)** - Complete API reference with mathematical formulas
+- **[Infrastructure](infrastructure.md)** - API references for SynchronousSchedule and utilities
+- **[README](../README.md)** - Installation and quick start
 
 ---
 ## What is a Schedule?
@@ -287,6 +288,7 @@ For complete API documentation including mathematical formulas, parameter specif
 
 ## Next Steps
 
-- See [Built-In Schedules](builtin_schedules.md) for complete API reference of builtin schedules with mathematical formulas
-- See [Infrastructure](infrastructure.md) for complete API references of the syncronous schedules and helpers.
-- Read the [README](README.md) for installation and quick start.
+- **[Examples & Tutorials](examples_and_tutorials.md)** - Try hands-on examples in Google Colab
+- **[Built-In Schedules](builtin_schedules.md)** - Explore all available schedule curves and formulas
+- **[Infrastructure](infrastructure.md)** - Learn advanced usage and low-level APIs
+- **[README](../README.md)** - Return to quick start and overview

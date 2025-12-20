@@ -13,9 +13,10 @@ Most users will primarily use `SynchronousSchedule` for coordination and occasio
 
 ## Navigation
 
-- See [Built-In Schedules](builtin_schedules.md) for complete API reference of builtin schedules with mathematical formulas
-- See [User Guide](user_guide.md) for how to use the system.
-- Read the [README](README.md) for installation and quick start.
+- **[Examples & Tutorials](examples_and_tutorials.md)** - Hands-on Colab notebooks with step-by-step tutorials
+- **[User Guide](user_guide.md)** - Complete usage guide and concepts
+- **[Built-In Schedules](builtin_schedules.md)** - API reference with mathematical formulas
+- **[README](../README.md)** - Installation and quick start
 ---
 
 ## The arbitrary_schedule_factory
@@ -347,6 +348,7 @@ def apply_conditional_regularization(optimizer):
 
 ## See Also
 
-- See [Built-In Schedules](builtin_schedules.md) for complete API reference of builtin schedules with mathematical formulas
-- See [User Guide](user_guide.md) for how to use the system.
-- Read the [README](README.md) for installation and quick start.
+- **[Examples & Tutorials](examples_and_tutorials.md)** - Hands-on Colab notebooks with step-by-step tutorials
+- **[User Guide](user_guide.md)** - Complete usage guide and concepts
+- **[Built-In Schedules](builtin_schedules.md)** - API reference with mathematical formulas
+- **[README](../README.md)** - Installation and quick start

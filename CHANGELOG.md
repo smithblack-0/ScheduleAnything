@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.2
+
+Documentation improvements
+
+- Added `documentation/examples_and_tutorials.md` to organize hands-on examples and tutorials
+- Examples released incrementally with accompanying Medium articles
+- First example: `basic_weight_decay_scheduling.ipynb` - scheduling weight decay in custom training loops
+- Standardized navigation sections across all documentation files for consistency
+- Added "Open in Colab" links for direct access to runnable notebooks
+
 ## 1.1.1
 
 **BREAKING CHANGE**: Import alias changed from `sa` to `tsa`
