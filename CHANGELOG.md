@@ -1,5 +1,13 @@
 # Changelog
 
+
+
+## 1.1.0
+
+- Added first example into examples folder. 
+- Detected collision - abbreviation sa is the same as sqlalchemy. Switching to tsa. Last API
+  change before medium release, so last api change ever. Basically, dotting i's and crossing t's right now. 
+
 ## 1.0.2
 
 - Fixed LaTeX underscore rendering for GitHub in documentation
