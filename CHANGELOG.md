@@ -1,12 +1,28 @@
 # Changelog
 
+## 1.1.1
 
+**BREAKING CHANGE**: Import alias changed from `sa` to `tsa`
+
+Changed canonical import from `import torch_schedule_anything as sa` to `import torch_schedule_anything as tsa` due to namespace conflict with SQLAlchemy (which uses `sa` as standard convention).
+
+**Why the change:**
+- SQLAlchemy has long-established convention of `import sqlalchemy as sa`
+- Having two popular libraries use the same alias causes confusion and conflicts
+- `tsa` stands for "Torch Schedule Anything" - clear and unique
+- This is the final API convention change before public Medium release
+
+**What changed:**
+- All documentation updated to use `tsa` instead of `sa`
+- All test files updated to use `tsa` instead of `sa`
+- All code examples now show `import torch_schedule_anything as tsa`
+
+**Migration:** Simply replace `import torch_schedule_anything as sa` with `import torch_schedule_anything as tsa` in your code.
 
 ## 1.1.0
 
-- Added first example into examples folder. 
-- Detected collision - abbreviation sa is the same as sqlalchemy. Switching to tsa. Last API
-  change before medium release, so last api change ever. Basically, dotting i's and crossing t's right now. 
+- Added first example into examples folder (basic_weight_decay_scheduling.ipynb)
+- Initial detection of SQLAlchemy collision 
 
 ## 1.0.2
 
