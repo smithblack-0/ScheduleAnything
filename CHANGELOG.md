@@ -9,6 +9,8 @@ Documentation improvements
 - First example: `basic_weight_decay_scheduling.ipynb` - scheduling weight decay in custom training loops
 - Standardized navigation sections across all documentation files for consistency
 - Added "Open in Colab" links for direct access to runnable notebooks
+- Minor bugfix on basic_weight_decay_scheduling example
+- API IS FINAL.
 
 ## 1.1.1
 

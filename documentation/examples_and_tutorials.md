@@ -1,6 +1,6 @@
 # Examples and Tutorials
 
-This page organizes hands-on examples and tutorials for `torch-schedule-anything`. Examples are being developed gradually, with each example accompanied by a detailed Medium article explaining the concepts and implementation.
+This page organizes hands-on examples and tutorials for `torch-schedule-anything`. Examples are being developed gradually, with each example accompanied by a detailed Medium article regarding the concepts and implementation.
 
 ## About These Examples
 
@@ -18,9 +18,9 @@ Learn how to schedule weight decay alongside learning rate in a custom training 
 - Setting up schedules for multiple optimizer parameters
 - Building a custom training loop with scheduled hyperparameters
 - Coordinating weight decay and learning rate schedules
-- Best practices for checkpoint/resume with scheduled parameters
 
-**Medium Article:** *(Coming soon)*
+
+**Medium Article:** 
 
 **What you'll learn:**
 - How to use `arbitrary_schedule_factory` to schedule weight decay
