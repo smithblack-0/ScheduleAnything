@@ -129,7 +129,7 @@ $$
 
 **Example:**
 ```python
-scheduler = sa.cosine_annealing_with_warmup(
+scheduler = tsa.cosine_annealing_with_warmup(
     optimizer,
     warmup_to_value=1.0,
     anneal_to_value=0.001,
@@ -180,7 +180,7 @@ $$
 **Example:**
 ```python
 # Gradient clipping: start permissive, tighten over training
-scheduler = sa.cosine_annealing_with_inverse_warmup(
+scheduler = tsa.cosine_annealing_with_inverse_warmup(
     optimizer,
     warmup_to_value=5.0,
     anneal_to_value=0.5,
