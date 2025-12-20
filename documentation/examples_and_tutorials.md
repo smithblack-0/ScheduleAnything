@@ -20,7 +20,8 @@ Learn how to schedule weight decay alongside learning rate in a custom training 
 - Coordinating weight decay and learning rate schedules
 
 
-**Medium Article:** 
+**Medium Article:** [ScheduleAnything: If you can dream it, it can schedule it.
+](https://medium.com/@chris.oquinn2/scheduleanything-if-you-can-dream-it-it-can-schedule-it-574fb3682ea1?postPublishedType=repub)
 
 **What you'll learn:**
 - How to use `arbitrary_schedule_factory` to schedule weight decay
