@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0
+
+Paper enhancements
+- Added case studies from paper to main repo
+- Added paper itself including source code to main repo.
+
 ## 1.1.2
 
 Documentation improvements
