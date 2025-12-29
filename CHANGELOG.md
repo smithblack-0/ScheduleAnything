@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.1
+
+Documentation update - Added four new examples to examples_and_tutorials.md
+
+**Capabilities Series:**
+- Weight Decay and Learning Rate Scheduling example
+- Logical Batch Size Scheduling example
+- Gradient Norm Threshold Scheduling (GNTS) example
+
+**Framework Integration Series:**
+- HuggingFace Trainer integration example with Medium article
+
+All examples include Colab links, learning objectives, and prerequisites.
+
 ## 1.2.0
 
 Paper enhancements
