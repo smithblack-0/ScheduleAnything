@@ -102,6 +102,29 @@ def test_synchronous_rejects_duplicate_lr_schedules(optimizer):
         tsa.SynchronousSchedule([sched1, sched2])
 
 
+def test_synchronous_exposes_root_optimizer_from_normal_schedule(optimizer):
+    """
+    Contract: SynchronousSchedule gets and exposes the root optimizer off the schedule
+    Observable: Original optimizer exposed
+    """
+    schedule = StepLR(optimizer, step_size=10)
+    schedule = tsa.SynchronousSchedule([schedule])
+    assert schedule.optimizer is optimizer
+
+
+def test_synchronous_exposes_optimizer_through_adapter(optimizer):
+    """
+    Contract: SynchronousSchedule goes through adapters to get the
+    underlying optimizer
+    Observable: Original optimizer returned.
+    """
+    schedule = tsa.arbitrary_schedule_factory(
+        optimizer, lambda optimizer: StepLR(optimizer, step_size=10)
+    )
+    schedule = tsa.SynchronousSchedule([schedule])
+    assert schedule.optimizer is optimizer
+
+
 # =============================================================================
 # Stepping & Synchronization Tests
 # =============================================================================
