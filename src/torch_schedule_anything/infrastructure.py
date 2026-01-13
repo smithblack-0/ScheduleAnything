@@ -113,7 +113,16 @@ class SynchronousSchedule(LRScheduler):
 
             assigned_schedules[name] = schedule
 
+        # Figure out the base optimizer
+        # by walking into the optimizer tree in terms
+        # of arbitrary schedule adapters.
+        root_schedule = schedules[0]
+        optimizer = root_schedule.optimizer
+        while isinstance(optimizer, ArbitraryScheduleAdapter):
+            optimizer = optimizer.optimizer
+
         self.schedules = assigned_schedules
+        self.optimizer = optimizer
 
     @property
     def schedule_names(self) -> List[str]:

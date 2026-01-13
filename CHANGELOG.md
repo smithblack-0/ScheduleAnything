@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.2 
+
+1/13/2026
+
+Bugfix: SynchronousSchedule does not display .optimizer, breaking Lightning Compatibility (#13
+)
+- Add display of opti
+
 ## 1.2.1
 
 Documentation update - Added four new examples to examples_and_tutorials.md
