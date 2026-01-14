@@ -162,6 +162,7 @@ def test_step_updates_all_schedulers(optimizer):
     assert optimizer.param_groups[0]["custom_param_1"] == initial_val1 * 0.5
     assert optimizer.param_groups[0]["custom_param_2"] == initial_val2 * 0.8
 
+
 def test_step_epoch_passthrough(optimizer):
     """
     Contract: Single step() call updates all schedulers.
@@ -193,6 +194,7 @@ def test_step_epoch_passthrough(optimizer):
     # Observable: Both parameters changed
     assert optimizer.param_groups[0]["custom_param_1"] == initial_val1 * 0.5**3
     assert optimizer.param_groups[0]["custom_param_2"] == initial_val2 * 0.8**3
+
 
 # =============================================================================
 # Value Retrieval Tests
