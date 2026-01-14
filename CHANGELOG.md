@@ -1,13 +1,21 @@
 # Changelog
+## 1.2.3
 
+1/13/2026
+
+Bugfix: SynchronousSchedule did not pass along arguments as documented
+
+- Add code to account for situation.
+- Add unit test to test arguments are being passed along properly
+- 
 ## 1.2.2 
 
 1/13/2026
 
 Bugfix: SynchronousSchedule does not display .optimizer, breaking Lightning Compatibility (#13
 )
-- Add display of opti
-
+- Add display of optimizer feature
+- Add unit tests to sychnronous schedule
 ## 1.2.1
 
 Documentation update - Added four new examples to examples_and_tutorials.md

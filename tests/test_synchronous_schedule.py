@@ -163,6 +163,39 @@ def test_step_updates_all_schedulers(optimizer):
     assert optimizer.param_groups[0]["custom_param_2"] == initial_val2 * 0.8
 
 
+def test_step_epoch_passthrough(optimizer):
+    """
+    Contract: Single step() call updates all schedulers.
+    Observable: All scheduled parameters change after sync.step().
+    """
+    # Add parameters for scheduling
+    tsa.extend_optimizer(optimizer, "custom_param_1", default_value=10.0)
+    tsa.extend_optimizer(optimizer, "custom_param_2", default_value=20.0)
+
+    sched1 = tsa.arbitrary_schedule_factory(
+        optimizer,
+        lambda opt: StepLR(opt, step_size=1, gamma=0.5),
+        schedule_target="custom_param_1",
+    )
+    sched2 = tsa.arbitrary_schedule_factory(
+        optimizer,
+        lambda opt: StepLR(opt, step_size=1, gamma=0.8),
+        schedule_target="custom_param_2",
+    )
+
+    sync = tsa.SynchronousSchedule([sched1, sched2])
+
+    initial_val1 = optimizer.param_groups[0]["custom_param_1"]
+    initial_val2 = optimizer.param_groups[0]["custom_param_2"]
+
+    # Step once
+    sync.step(3)
+
+    # Observable: Both parameters changed
+    assert optimizer.param_groups[0]["custom_param_1"] == initial_val1 * 0.5**3
+    assert optimizer.param_groups[0]["custom_param_2"] == initial_val2 * 0.8**3
+
+
 # =============================================================================
 # Value Retrieval Tests
 # =============================================================================

@@ -96,12 +96,13 @@ SynchronousSchedule(schedules: List[_LRScheduler])
 
 Step is invoked as
 
-`step(epoch: Optional[int] = None)`
+`step(*args, **kwargs)`
 
 Step all managed schedulers together.
 
 **Parameters:**
-- **`epoch`** - Optional epoch number to pass to schedulers
+- **`*args`** Values passed in to underlying schedules
+- **`**kwargs** Keyword args passed to underlying schedules
 
 **Example:**
 ```python
