@@ -1,4 +1,14 @@
 # Changelog
+
+## 1.2.4
+
+1/16/2026
+
+Next medium article is ready, and it's examples
+
+- Added Medium_Lighting_Logical_Batch_Size_Scheduling_Example.ipynb
+- Added links to medium article. 
+
 ## 1.2.3
 
 1/13/2026
