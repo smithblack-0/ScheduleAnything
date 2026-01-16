@@ -105,6 +105,21 @@ Production-ready example showing how to integrate ScheduleAnything with HuggingF
 
 **Prerequisites:** HuggingFace Transformers and Trainer API experience, production training workflow knowledge
 
+### Lightning Integraton 
+
+**[Open in Colab](https://colab.research.google.com/github/smithblack-0/ScheduleAnything/blob/master/examples/Medium_Lighting_Logical_Batch_Size_Scheduling_Example.ipynb)**
+
+Production-Ready example showing how to integrate ScheduleAnything with Lightning-AI to perform logical batch size scheduling. 
+
+**Medium Article**[Logical Batch Size Scheduling in Lighting](https://medium.com/@chris.oquinn2/logical-batch-size-scheduling-in-lighting-cbd383c1ca09)
+
+**What you will learn**
+- Design decisions to make when using Lightning and ScheduleAnything
+- How to handle logical batch size scheduling with Lightning.
+- Minimal deltas and good design patterns.
+
+
+
 ---
 
 ## Navigation
